@@ -8,3 +8,5 @@ log.txt
 .ipynb_checkpoints
 *.tif
 *.index
+
+*.csv
