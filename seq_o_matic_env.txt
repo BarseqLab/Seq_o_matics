@@ -1,0 +1,12 @@
+conda create -n seq_o_matic python=3.11
+conda activate seq_o_matic
+pip install pycromanager
+conda install numpy
+pip install opencv-python 
+conda install anaconda::opencv
+conda install anaconda::scikit-image
+conda install anaconda::pillow
+conda install conda-forge::tifffile
+conda install anaconda::pandas
+conda install anaconda::pyserial
+conda install anaconda::pyqtgraph

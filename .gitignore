@@ -1,0 +1,10 @@
+*.ipynb
+
+log.txt
+
+*.pyc
+
+.idea
+.ipynb_checkpoints
+*.tif
+*.index
