@@ -65,14 +65,14 @@ class heat_stage_group():
         self.ao_task.write(self.temp)
         for i in range(self.num_devices):
             self.do_task[i].write(self.heat_mode)
-        txt=get_time()+"start heat" +"\n"
+        txt=get_time()+"start heat\n"
         print("start heat")
         self.write_log(txt)
         #add_fluidics_reagent(txt)
 
     def end_heat(self):
         self.ao_task.write(0.1)
-        txt = get_time() + "End heat"+"\n"
+        txt = get_time() + "End heat\n"
         print("End heat")
         self.write_log(txt)
         #add_fluidics_reagent(txt)
@@ -148,17 +148,17 @@ class heat_stage_group():
             t.join()
 
         if sum(self.status)==1*self.num_devices:
-            txt = get_time() +"All stages heated successfully"+"\n"
+            txt = get_time() +"All stages heated successfully\n"
             self.write_log(txt)
             #add_fluidics_reagent(txt)
             self.heat_status=1
         elif sum(self.status)==0:
-            txt = get_time() + "All stages has issue" + "\n"
+            txt = get_time() + "All stages has issue\n"
             self.write_log(txt)
             #add_fluidics_reagent()
             self.heat_status = 0
         else:
-            txt = get_time() + "One or more stages has issue" + "\n"
+            txt = get_time() + "One or more stages has issue\n"
             self.write_log(txt)
             #add_fluidics_reagent()
             self.heat_status = 1
