@@ -58,7 +58,7 @@ class heating_device():
         timer_time = []
         try:
             with open(os.path.join(self.pos_path, 'temp.txt'), 'a') as fp:
-                fp.write("lower bound: "+str(low_temp) + " higher bound: "+str(high_temp)+'\n')
+                fp.write(f"lower bound: {low_temp}  higher bound: {high_temp} \n")
             fp.close()
         except:
             pass
@@ -67,7 +67,7 @@ class heating_device():
             while time_diff<=1200 and self.cancel==0 :
                 s = self.check_temp()
                 with open(os.path.join(self.pos_path, 'temp.txt'), 'a') as fp:
-                    fp.write(str(s) + '\n')
+                    fp.write(f"{s}\n")
                 fp.close()
                 if len(timer_time)>=timer/2:
                     print("Heat is enough")
@@ -91,12 +91,11 @@ class heating_device():
                     now = datetime.now()
                     time_diff = (now - start).total_seconds()
             if self.cancel==1:
-                txt=get_time() + "break while loop, heater cancelled!"+"\n"
+                txt=get_time() + "break while loop, heater cancelled!\n"
                 add_fluidics_reagent(txt)
                 self.write_log(txt)
                 print("break while loop, heater cancelled!")
             if self.heater_on == 1:
-                print("I am here to finally close heater")
                 self.stop_heater()
                 self.heat_status = 1
             if len(timer_time)<timer/2:
@@ -105,7 +104,7 @@ class heating_device():
             else:
                 self.heat_status = 1
                 print("The heat is complete")
-                txt = get_time() + "The heat is complete" + "\n"
+                txt = get_time() + "The heat is complete\n"
                 add_fluidics_reagent(txt)
                 self.write_log(txt)
         else:
