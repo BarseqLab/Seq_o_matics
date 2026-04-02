@@ -4,6 +4,9 @@
 
 Seq-o-Matic is an integrated laboratory automation system for in-situ hybridization (ISH) and barcode sequencing (BARseq) workflows. It orchestrates fluidics exchange, microscope control, and image acquisition to enable fully automated multi-cycle sequencing experiments on tissue samples.
 
+
+![Demo](demo.png)
+
 **Author:** Aixin Zhang
 **Repository:** [BarseqLab/Seq_o_matics](https://github.com/BarseqLab/Seq_o_matics)
 
