@@ -1,0 +1,8 @@
+Pycromanager:
+current micromanager version is 2021 july basic version, can't change due to the config with Nikon
+remove plugin folder, install nightly buildt micromanager MMSetup_64bit_2.0.1_20230331 in different computer (or newest one)
+copied all pycromanager plugin and viewer.jar(the one outside pycromanage folder) into old version micromanager
+Install newest pycromanager
+currently use python 3.10
+
+

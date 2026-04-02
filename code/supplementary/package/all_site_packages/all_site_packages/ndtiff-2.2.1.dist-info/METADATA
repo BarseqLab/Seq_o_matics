@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: ndtiff
+Version: 2.2.1
+Summary: Python libraries for NDTiff datasets
+Home-page: https://github.com/micro-manager/NDTiffStorage
+Author: Henry Pinkard
+Author-email: henry.pinkard@gmail.com
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: sortedcontainers
+Requires-Dist: dask[array] (>=2022.2.0)
+Provides-Extra: test
+Requires-Dist: pytest ; extra == 'test'
+
+Python reader for NDTiff files
