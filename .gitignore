@@ -10,4 +10,5 @@ log.txt
 *.index
 code/supplementary/selector
 code/supplementary/NIDAQ
-cod/supplementary/MicroManager_install
+cod/supplementary/MicroManager_install"code/supplementary/MicroManager_install/*.exe" 
+"code/supplementary/selector/bin/**/*.exe" 
