@@ -8,3 +8,6 @@ log.txt
 .ipynb_checkpoints
 *.tif
 *.index
+code/supplementary/selector
+code/supplementary/NIDAQ
+cod/supplementary/MicroManager_install
