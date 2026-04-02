@@ -10,6 +10,7 @@ Seq-o-Matic is an integrated laboratory automation system for in-situ hybridizat
 **Author:** Aixin Zhang
 **Repository:** [BarseqLab/Seq_o_matics](https://github.com/BarseqLab/Seq_o_matics)
 
+** New seq-o-matic assisstant AI Agent is ready, it can assist you to install the env and answer all questions related to this system including hardware details, code details and control the system with human language, try "pump 1 ml pbst to chamber" or "heat chamber for 1 min at 60 c", the devices will work automatically follow your command! The project is published here:https://github.com/aixinzhang/Seq-o-Matic_AI_Assistant 
 ---
 
 ## Table of Contents
