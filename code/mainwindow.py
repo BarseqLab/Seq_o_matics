@@ -81,6 +81,12 @@ my_widges.aws_account_field_manual.grid(row=0, column=2, padx=5,sticky="w")
 my_widges.aws_password_lb_manual.grid(row=0, column=3, padx=5, sticky="w")
 my_widges.aws_pwd_field_manual.grid(row=0, column=4, padx=5, sticky="w")
 
+# Manual upload of a previous experiment folder to AWS (detached, survives GUI exit)
+my_widges.manual_aws_path_auto.grid(row=1, column=1, columnspan=2, padx=5, pady=3, sticky="w")
+my_widges.manual_aws_upload_btn_auto.grid(row=1, column=3, columnspan=2, padx=5, pady=3, sticky="w")
+my_widges.manual_aws_path_manual.grid(row=1, column=1, columnspan=2, padx=5, pady=3, sticky="w")
+my_widges.manual_aws_upload_btn_manual.grid(row=1, column=3, columnspan=2, padx=5, pady=3, sticky="w")
+
 my_widges.info_btn_auto.grid(row=2, column=0, padx=10, pady=5)
 my_widges.info_btn_manual.grid(row=2, column=0, padx=10, pady=5)
 

@@ -7,6 +7,7 @@ modules under front_end.panels and front_end.automation_controller.
 """
 
 import os.path
+import sys
 import tkinter as tk
 from tkinter import ttk, StringVar, scrolledtext, Button, END, DISABLED, NORMAL, Label, Entry, Checkbutton, IntVar, Spinbox, PhotoImage
 from datetime import datetime
@@ -16,6 +17,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import cv2
+import subprocess
+import tarfile
+import zstandard
 
 from front_end.logwindow import (
     Log_window, widge_attr, hattop_convert, denoise,
@@ -413,6 +417,18 @@ class window_widgets:
                                            fg=widge_attr.normal_color, variable=self.upload_aws_value, onvalue=1,
                                            offvalue=0)
 
+        # Manual upload of a previous experiment folder to AWS.  The path may be
+        # a full path (D:/example_folder) or a bare name resolved against the
+        # max-projection drive.  Uploads run detached and survive GUI exit.
+        self.manual_aws_path_auto = Entry(self.frame3, relief="groove", width=40)
+        self.manual_aws_upload_btn_auto = Button(
+            self.frame3, text="manual upload to AWS",
+            command=lambda: self.manual_upload_to_aws("auto"))
+        self.manual_aws_path_manual = Entry(self.frame3_3, relief="groove", width=40)
+        self.manual_aws_upload_btn_manual = Button(
+            self.frame3_3, text="manual upload to AWS",
+            command=lambda: self.manual_upload_to_aws("manual"))
+
         self.inchamber_path = IntVar()
         self.inchamber_path.set(1)
         self.inchamber_path_cbox = Checkbutton(self.frame5, text="To chamber",
@@ -475,10 +491,6 @@ class window_widgets:
     def upload_aws(self):
         """Toggle the AWS upload credential fields between editable and disabled."""
         self._status.upload_aws()
-
-    def upload_aws_handler(self):
-        """Placeholder for future AWS upload functionality."""
-        self._status.upload_aws_handler()
 
     # -- WorkspacePanel --
     def browse_handler_auto(self):
@@ -732,3 +744,128 @@ class window_widgets:
         self.write_log(txt)
         self.all_autobtn_normal()
         self.cancel_sequence_btn['state'] = "disable"
+
+
+
+    # ------------------------------------------------------------------ #
+    #  AWS upload -- launched as a DETACHED process so it survives GUI exit #
+    # ------------------------------------------------------------------ #
+
+    def _aws_jobs_dir(self):
+        """Return (and create) the folder holding AWS upload logs + registry."""
+        jobs_dir = os.path.join(self.scope.maxprojection_drive, "aws_upload_logs")
+        os.makedirs(jobs_dir, exist_ok=True)
+        return jobs_dir
+
+    def _launch_aws_upload(self, base_dir, folder, protocol_src):
+        """Launch aws_upload_worker.py as a detached process and log where to look.
+
+        The worker outlives this GUI process: closing the GUI does not kill the
+        upload. Progress is traceable via the per-job log file and the job
+        registry TSV, both under <maxprojection_drive>/aws_upload_logs/.
+        """
+        worker = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "aws_upload_worker.py",
+        )
+        jobs_dir = self._aws_jobs_dir()
+        stamp = datetime.now(timezone('US/Pacific')).strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(jobs_dir, f"aws_upload_{folder}_{stamp}.log")
+
+        cmd = [
+            sys.executable, worker,
+            "--base-dir", base_dir,
+            "--folder", folder,
+            "--protocol-src", protocol_src or "",
+            "--bucket", "barseq-acquisition",
+            "--log-file", log_file,
+        ]
+
+        # Detach on Windows so the worker is not a child of the GUI process.
+        creationflags = (
+            getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+        )
+        proc = subprocess.Popen(
+            cmd,
+            creationflags=creationflags,
+            close_fds=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+        )
+
+        # Append to the job registry for traceability across GUI restarts.
+        registry = os.path.join(jobs_dir, "aws_upload_jobs.tsv")
+        with open(registry, "a", encoding="utf-8") as f:
+            f.write(f"{stamp}\t{folder}\t{proc.pid}\t{log_file}\n")
+
+        txt = (get_time() + f"Launched detached AWS upload of '{folder}' "
+               f"(pid {proc.pid}). Progress log: {log_file}\n")
+        add_highlight_mainwindow(txt)
+        self.write_log(txt)
+        return proc.pid
+
+    def upload_aws_handler(self):
+        """Launch the detached AWS upload for the current automation run.
+
+        Fire-and-continue: the automation sequence does not block on the
+        upload, and the upload survives GUI exit.
+        """
+        base_dir = os.path.join(
+            self.scope.maxprojection_drive, self.pos_path[3:] + "_maxprojection")
+        folder = self.pos_path[3:] + "_maxprojection"
+        # Auto path gathers protocol files from the live acquisition folder.
+        self._launch_aws_upload(base_dir, folder, self.pos_path)
+
+    def _resolve_aws_path(self, raw):
+        """Resolve a user-typed path to a *_maxprojection folder on disk.
+
+        Accepts a full path (``D:/example_folder``) used as-is, or a bare name
+        (``example_folder`` / ``"example_folder"``) resolved against the
+        max-projection drive. Returns (base_dir, folder) or (None, None) if it
+        cannot be resolved to an existing directory.
+        """
+        if raw is None:
+            return None, None
+        path = raw.strip().strip('"').strip("'").strip()
+        if not path:
+            return None, None
+        path = os.path.normpath(path)
+        if os.path.isabs(path):
+            base_dir = path
+        else:
+            base_dir = os.path.join(self.scope.maxprojection_drive, path)
+        folder = os.path.basename(base_dir.rstrip("/\\"))
+        return base_dir, folder
+
+    def manual_upload_to_aws(self, tab="manual"):
+        """Manually upload a previous experiment's max-projection folder to AWS.
+
+        Reads the path from the auto/manual text box, resolves it (defaulting
+        to the max-projection drive), validates it, and launches the detached
+        worker. The upload survives GUI exit and is traceable via its log file.
+        """
+        field = (self.manual_aws_path_auto if tab == "auto"
+                 else self.manual_aws_path_manual)
+        raw = field.get()
+        base_dir, folder = self._resolve_aws_path(raw)
+
+        if not base_dir or not os.path.isdir(base_dir):
+            txt = get_time() + f"Manual AWS upload: folder not found: {raw}\n"
+            update_error(txt)
+            self.write_log(txt)
+            return
+
+        subdirs = [n for n in os.listdir(base_dir)
+                   if os.path.isdir(os.path.join(base_dir, n))]
+        if not subdirs:
+            txt = (get_time() +
+                   f"Manual AWS upload: no subfolders to upload in {base_dir}\n")
+            update_error(txt)
+            self.write_log(txt)
+            return
+
+        # Per decision: look inside the maxprojection folder for protocol files.
+        self._launch_aws_upload(base_dir, folder, base_dir)
+

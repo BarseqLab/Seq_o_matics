@@ -44,7 +44,9 @@ class AutomationController:
             self.app.fluidics.disconnect_selector()
             self.app.fluidics.disconnect_relay()
             self.app.fluidics.disconnect_heater()
-            txt = _get_time() + "Upload data to server!\n"
+
+
+            txt = _get_time() + "Upload data!\n"
             self.app.write_log(txt)
             add_highlight_mainwindow(txt)
             self.app.scope = scope(
@@ -52,25 +54,34 @@ class AutomationController:
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
             )
-            if os.path.exists(os.path.join(
-                self.app.scope.maxprojection_drive,
-                self.app.pos_path[3:] + "_maxprojection",
-            )):
-                txt = _get_time() + "Upload images to server!\n"
+            if self.app.upload_aws_value.get() == 1:
+                txt = _get_time() + "Upload images to AWS!\n"
                 self.app.write_log(txt)
                 add_highlight_mainwindow(txt)
-                self.app.scope.send_to_server(self.app.pos_path)
-                txt = _get_time() + "Upload images is finished!\n"
+                self.app.upload_aws_handler()
+                txt = _get_time() + "AWS upload finished!\n"
                 self.app.write_log(txt)
                 add_highlight_mainwindow(txt)
+            else:
+                if os.path.exists(os.path.join(
+                    self.app.scope.maxprojection_drive,
+                    self.app.pos_path[3:] + "_maxprojection",
+                )):
+                    txt = _get_time() + "Upload images to server!\n"
+                    self.app.write_log(txt)
+                    add_highlight_mainwindow(txt)
+                    self.app.scope.send_to_server(self.app.pos_path)
+                    txt = _get_time() + "Upload images is finished!\n"
+                    self.app.write_log(txt)
+                    add_highlight_mainwindow(txt)
 
-            txt = _get_time() + "Upload files to server!\n"
-            self.app.write_log(txt)
-            add_highlight_mainwindow(txt)
-            self.app.scope.send_protocol(self.app.pos_path)
-            txt = _get_time() + "Upload files is finished!\n"
-            self.app.write_log(txt)
-            add_highlight_mainwindow(txt)
+                txt = _get_time() + "Upload files to server!\n"
+                self.app.write_log(txt)
+                add_highlight_mainwindow(txt)
+                self.app.scope.send_protocol(self.app.pos_path)
+                txt = _get_time() + "Upload files is finished!\n"
+                self.app.write_log(txt)
+                add_highlight_mainwindow(txt)
             self.app.all_autobtn_normal()
             self.app.cancel_sequence_btn['state'] = "disable"
             return
