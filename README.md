@@ -1,8 +1,8 @@
 # Seq-o-Matic 2.5
 
-**Automated Laboratory Platform for Spatial Transcriptomics Sequencing**
+**Automated Laboratory Platform for In situ Sequencing**
 
-Seq-o-Matic is an integrated laboratory automation system for in-situ hybridization (ISH) and barcode sequencing (BARseq) workflows. It orchestrates fluidics exchange, microscope control, and image acquisition to enable fully automated multi-cycle sequencing experiments on tissue samples.
+Seq-o-Matic is an integrated laboratory automation system for in situ sequencing (e.g. BARseq) workflows. It orchestrates fluidics exchange, microscope control, and image acquisition to enable fully automated multi-cycle sequencing experiments on tissue samples.
 
 
 ![Demo](demo.png)
