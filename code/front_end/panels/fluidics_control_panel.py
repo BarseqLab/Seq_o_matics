@@ -34,6 +34,23 @@ class FluidicsControlPanel:
     def __init__(self, app):
         self.app = app
 
+    def _pump_speed_or_prompt(self):
+        """Return the pump speed typed by the operator, or None after asking for one.
+
+        The value must be a positive number (mL/min). An empty or invalid field
+        used to raise ValueError inside the handler.
+        """
+        text = self.app.pump_speed_input.get().strip()
+        try:
+            speed = float(text)
+            if speed > 0:
+                return speed
+        except ValueError:
+            pass
+        messagebox.showinfo(title="Pump speed",
+                            message="Please enter the measured pump speed (mL/min) before starting.")
+        return None
+
     def prime_btn_check(self):
         """Show a confirmation popup for the pump speed before priming the lines."""
         self.app.prime_popup = tk.Tk()
@@ -56,7 +73,10 @@ class FluidicsControlPanel:
     def prime_btn_handler(self):
         """Prime all fluidics lines by running the fill-all sequence through the pump, selector, and relay."""
         self.app.prime_popup.destroy()
-        self.app.fluidics.pumprate = float(self.app.pump_speed_input.get())
+        speed = self._pump_speed_or_prompt()
+        if speed is None:
+            return
+        self.app.fluidics.pumprate = speed
         print(self.app.fluidics.pumprate)
         if 0 in [
             self.app.device_status['selector_group'],
@@ -124,6 +144,8 @@ class FluidicsControlPanel:
     def fill_single_reagent(self):
         """Validate device configuration and start a background thread to pump a single reagent."""
         self.app.pump_popup.destroy()
+        if self._pump_speed_or_prompt() is None:
+            return
         if 0 in [
             self.app.device_status['selector_group'],
             self.app.device_status['pump_group'],
@@ -136,7 +158,7 @@ class FluidicsControlPanel:
 
     def pump_reagent(self):
         """Connect to fluidics hardware, pump the selected reagent at the specified volume and rate, then disconnect."""
-        self.app.fluidics.pumprate = float(self.app.pump_speed_input.get())
+        self.app.fluidics.pumprate = float(self.app.pump_speed_input.get().strip())
         reagent = self.app.reagent.get()
         vol = self.app.reagent_amount.get()
         if reagent == "":
@@ -208,7 +230,10 @@ class FluidicsControlPanel:
     def wash_btn_handler(self):
         """Flush all fluidics lines with water by running the flush-all sequence."""
         self.app.wash_popup.destroy()
-        self.app.fluidics.pumprate = float(self.app.pump_speed_input.get())
+        speed = self._pump_speed_or_prompt()
+        if speed is None:
+            return
+        self.app.fluidics.pumprate = speed
         if 0 in [
             self.app.device_status['selector_group'],
             self.app.device_status['pump_group'],
@@ -252,10 +277,13 @@ class FluidicsControlPanel:
     def start_btn_handler(self):
         """Save the calibrated pump speed, verify all devices are configured, and launch the automation sequence thread."""
         self.app.start_popup.destroy()
+        speed = self._pump_speed_or_prompt()
+        if speed is None:
+            return
+        # Save the value cleanly (one line, no stray newline) so it pre-fills the field next time.
         with open(os.path.join(self.app.cwd, "device", 'pump_speed_calibration.txt'), 'w') as fp:
-            fp.write(self.app.pump_speed_input.get() + "\n")
-        fp.close()
-        self.app.fluidics.pumprate = float(self.app.pump_speed_input.get())
+            fp.write(self.app.pump_speed_input.get().strip() + "\n")
+        self.app.fluidics.pumprate = speed
         if sum(self.app.device_status.values()) != len(self.app.device_status):
             messagebox.showinfo(title="config", message="Please config all devis!")
         else:

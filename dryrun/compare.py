@@ -5,6 +5,7 @@ differently and a single global interleaving of events is not stable.
 Run-specific paths and timestamps are normalised before comparing.
 """
 
+import ast
 import difflib
 import io
 import json
@@ -156,6 +157,19 @@ def checks(d, scenario):
     if sc["steps"] == "prime_wash":
         add("Prime finished (PBST flush done)", "reached: Prime done" in steps)
         add("Wash finished", "reached: Wash done" in steps)
+    if sc["steps"] == "pump_speed":
+        start = d.get("pump_field_at_startup")
+        add("pump speed field pre-filled with the saved value at start-up",
+            bool(start) and bool(ast.literal_eval(start).strip()), f"field was {start}")
+        t_clear = next((e["t"] for e in ev if e["kind"] == "driver" and e["step"].startswith("clear the pump")), 0)
+        t_type = next((e["t"] for e in ev if e["kind"] == "driver" and e["step"].startswith("type '1.58'")), 1e18)
+        errs = [e for e in ev if e["kind"] == "exception" and t_clear < e["t"] < t_type]
+        asked = [e for e in ev if e["kind"] == "messagebox" and t_clear < e["t"] < t_type]
+        add("Prime with an empty field asks for a value (no crash)", bool(asked) and not errs,
+            "; ".join(str(e.get("error")) for e in errs)[:200])
+        cal = f.get("pump_speed_calibration_bytes", "")
+        saved = ast.literal_eval(cal) if cal else b""
+        add("saved pump speed is a single clean line", saved.replace(b"\r\n", b"\n") == b"1.58\n", cal)
     if sc["steps"] in ("cancel_restart", "prime_cancel"):
         t_cancel = next((e["t"] for e in ev if e["kind"] == "driver" and e["step"] == "press Cancel"), None)
         t_restart = next((e["t"] for e in ev if e["kind"] == "driver" and " again" in e["step"]), None)

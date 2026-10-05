@@ -63,6 +63,11 @@ SCENARIOS = {
         "process": ["imagecycle00", "imagecycle_geneseq01"],
         "server": 0, "aws": 0, "steps": "cancel_restart", "cancel_during": "maxproj", "restart": False,
     },
+    "pump_speed": {
+        "description": "Pump-speed field: value at start-up, Prime with an empty field, Start with '1.58' plus a stray newline.",
+        "process": ["imagecycle00"],
+        "server": 0, "aws": 0, "steps": "pump_speed",
+    },
     "prime_cancel": {
         "description": "Press Prime, press Cancel during the fill, then press Prime again.",
         "process": ["imagecycle00"],
@@ -243,6 +248,22 @@ def run_prime_cancel(app, ctx):
     settle()
 
 
+def run_pump_speed(app, ctx):
+    trace.set_extra("pump_field_at_startup", repr(gui.call(lambda: app.pump_speed_input.get())))
+    common_setup(app, ctx)
+    trace.record("driver", step="clear the pump speed field, press Prime")
+    gui.call(lambda: _set_entry(app.pump_speed_input, ""))
+    gui.call(app.prime_btn_check)
+    gui.call(app.prime_btn_handler)
+    settle(virtual_quiet=120, virtual_max=1800)
+    trace.record("driver", step="type '1.58' followed by a stray newline, press Start")
+    gui.call(lambda: _set_entry(app.pump_speed_input, "1.58\n"))
+    gui.call(app.start_btn_check)
+    gui.call(app.start_btn_handler)
+    wait_until(lambda: "All rounds finished!" in log_text(ctx["exp_dir"]), 6 * 3600, "All rounds finished")
+    settle()
+
+
 def _ports():
     from dryrun import fake_serial
     return fake_serial.open_ports()
@@ -254,4 +275,4 @@ def _daq():
 
 
 STEPS = {"auto": run_auto, "prime_wash": run_prime_wash, "cancel_restart": run_cancel_restart,
-         "prime_cancel": run_prime_cancel}
+         "prime_cancel": run_prime_cancel, "pump_speed": run_pump_speed}

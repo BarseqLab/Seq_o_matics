@@ -116,9 +116,10 @@ class window_widgets:
         self.wash_inchamber=0
         self.cwd = os.getcwd()
 
+        # Pre-fill the pump speed with the last value saved by Start (last non-blank line).
         with open(os.path.join(self.cwd,"device","pump_speed_calibration.txt"), 'r') as f:
-            self.pump_pre_speed = f.readlines()[-1]
-        f.close()
+            lines = [line.strip() for line in f.readlines() if line.strip()]
+        self.pump_pre_speed = lines[-1] if lines else ""
         print(self.pump_pre_speed)
         self.assigned_heater = 0
         self.system_path=path
