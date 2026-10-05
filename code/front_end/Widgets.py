@@ -708,6 +708,14 @@ class window_widgets:
         """Check whether the max-projection disk has enough free space for the expected number of imaging rounds."""
         return self._automation.check_storage()
 
+    def start_check(self):
+        """Z-stack settings, piezo travel and disk space for the automated run about to start."""
+        return self._automation.start_check()
+
+    def record_start_settings(self, report):
+        """Write the z-stack settings in effect to log.txt and zstack_settings_used.json."""
+        self._automation.record_start_settings(report)
+
     def all_autobtn_disable(self):
         """Disable all primary action buttons to prevent user interaction during a running process."""
         self._automation.all_autobtn_disable()

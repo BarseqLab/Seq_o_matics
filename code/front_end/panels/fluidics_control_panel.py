@@ -263,23 +263,45 @@ class FluidicsControlPanel:
             t2.start()
 
     def start_btn_check(self):
-        """Show a confirmation popup for the pump speed before starting the automation sequence."""
-        self.app.start_popup = tk.Tk()
-        self.app.start_popup.geometry("500x100")
-        self.app.start_popup.title("Pump speed check point")
+        """Confirmation window before an automated run: pump speed, z-stack settings and disk space.
+
+        scope.json is read again here, so edits to the z-stack keys take effect
+        without creating the experiment again. Confirm is disabled while a check
+        fails, unless the override box is ticked.
+        """
+        with open(os.path.join("config_file", "scope.json"), 'r') as r:
+            self.app.scope_cfg = json.load(r)
+        self.app.imwidth = self.app.scope_cfg[0]["imwidth"]
+        report = self.app.start_report = self.app.start_check()
+
+        popup = self.app.start_popup = tk.Toplevel(self.app.parent_window)
+        popup.title("Start check point")
         self.app.pump_speed_label_start = tk.Label(
-            self.app.start_popup,
-            text=" Please confirm the current pump speed is " + self.app.pump_speed_input.get() + " ml/min!",
+            popup, text=" Please confirm the current pump speed is " + self.app.pump_speed_input.get() + " ml/min!",
         )
-        self.app.pump_speed_label_start.place(x=15, y=10)
-        self.app.pump_speed_confirm_start = tk.Button(
-            self.app.start_popup, text="Confirm", command=self.start_btn_handler,
-        )
-        self.app.pump_speed_confirm_start.place(x=150, y=30)
-        self.app.cancel_button_start = tk.Button(
-            self.app.start_popup, text="Cancel", command=self.app.start_popup.destroy,
-        )
-        self.app.cancel_button_start.place(x=350, y=30)
+        self.app.pump_speed_label_start.pack(anchor="w", padx=10, pady=(10, 4))
+        rows = ([(line, "black") for line in report["lines"]]
+                + [("Warning: " + line, "darkorange") for line in report["warnings"]]
+                + [("Check failed: " + line, "red") for line in report["errors"]])
+        for text, colour in rows:
+            tk.Label(popup, text=text, fg=colour, justify="left", wraplength=560).pack(anchor="w", padx=10)
+        if report["lines"] or report["warnings"] or report["errors"]:
+            verdict = "Checks failed" if report["errors"] else "All checks passed"
+            tk.Label(popup, text=verdict, fg="red" if report["errors"] else "darkgreen").pack(anchor="w", padx=10, pady=4)
+        buttons = tk.Frame(popup)
+        self.app.pump_speed_confirm_start = tk.Button(buttons, text="Confirm", command=self.start_btn_handler)
+        self.app.cancel_button_start = tk.Button(buttons, text="Cancel", command=popup.destroy)
+        if report["errors"]:
+            self.app.start_override = tk.IntVar(master=popup, value=0)
+            self.app.pump_speed_confirm_start["state"] = "disabled"
+            tk.Checkbutton(
+                popup, text="Start anyway (override the failed checks)", variable=self.app.start_override,
+                command=lambda: self.app.pump_speed_confirm_start.config(
+                    state="normal" if self.app.start_override.get() else "disabled"),
+            ).pack(anchor="w", padx=10)
+        buttons.pack(pady=10)
+        self.app.pump_speed_confirm_start.pack(side="left", padx=40)
+        self.app.cancel_button_start.pack(side="left", padx=40)
 
     def start_btn_handler(self):
         """Save the calibrated pump speed, verify all devices are configured, and launch the automation sequence thread."""
@@ -301,6 +323,9 @@ class FluidicsControlPanel:
             self.app.fluidics.sequenceStatus = 0
             self.app.check_files()
             if self.app.check_file == 1:
+                report = getattr(self.app, "start_report", None)
+                if report is not None and report["lines"]:
+                    self.app.record_start_settings(report)
                 self.app.fluidics.connect_pump()
                 self.app.fluidics.connect_relay()
                 self.app.fluidics.connect_selector()
