@@ -30,6 +30,27 @@ No code changes until this is reviewed.
 | **D** | Bug in **both** trees | List only, do not fix | 20 (§4) |
 | **C** | Neutral or cosmetic difference | Keep NEW unless noted | 13 (§5) |
 
+## Review decisions (2026-10-05)
+
+Context from the user: **Elm currently runs on REF.** No other version has been proven to run. Real runs always use **"skip alignment"**.
+
+| Item | Decision |
+|---|---|
+| All group-B rows (P01-P21) | **fix**, with the changes below |
+| P04, P05, P21 (Elm config and data) | **Done** in commit `3393477`. Every file under `config_file/`, `device/pump_speed_calibration.txt`, `device/tissue_scanner/**` and `reagent_sequence_file/**` is now byte-identical to REF, including folder names; `slide.pos~` was removed. Elm-specific values that are hard-coded in Python come in through the code fixes: default server (P12), pump 1.5 (P13), focus ±30 (P06), piezo 185 (P16). |
+| P03 (focus image path) | **fix**, but downgraded to **Medium**. With "skip alignment", `do_alignment` takes the mock path and `check_imagecycle00` only checks that `dicfocuscycle00/` exists, so real runs don't hang. The effect is that DIC best-focus images are not kept in `dicfocus<cycle>/`; they are overwritten in the launch folder instead. |
+| P15 (tissue scanner) | **fix**: stitching the same as REF (no flip, no CLAHE). The scanner is not used on Elm. Keep `imwrite` (A2), because REF's `imsave` can't run in Elm's env ("keep what works now"). |
+| All group-A rows | **keep** |
+| GA08 / Q1 (Cancel during Prime/Wash) | **Deviation from REF:** Cancel must **stop**. Skip the 4 mL PBST flush, disconnect the devices and re-enable the buttons. |
+| Q2 (Cancel hang in tiling/max-projection waits) | **fix** (deviation from REF) |
+| Q3 (doubled focus sweep) | explained to user; pending |
+| Q4 (logging) | **No duplicate lines in `log.txt`.** Panel messages: pending the user's choice from the list. |
+| Q5 (AWS missing-folder guard) | **fix** |
+| Q6 (start-flag race) | explained to user; pending |
+| Q7 (tissue scanner) | same as P15 |
+| GA10 / Q8 (pump-speed field) | Don't pre-fill differently. **Prompt the operator if no valid value was entered.** The proposed fix is pending confirmation. |
+| Group C, group D | defaults (C keep / small restores; D leave), except D items now covered by Q1/Q2/Q5/Q8 |
+
 ---
 
 ## 1. Group B: regressions to fix (NEW → REF behavior)
@@ -60,7 +81,16 @@ Each row will be one commit (or a tight group) in Step 3.
 | **P20** | Low | `save_to_note` catches only `OSError` (REF: bare). | Pressing "Send note" before creating an experiment prints a traceback and shows no GUI message. | `except Exception`. | GB12 | |
 | **P21** | Medium | Elm data files differ or are missing. Items marked † are not read by code but matter to operators: tissue-scanner `slide{1,2,3}/slide.pos` and `auto.csv` (another scope's coordinates); chamber-coordinate files† (`slide*_chamber_coor.pos`, `right_corner.pos`, `Chamber_Coordinates_Position_Save/`); gasket folders renamed† (`original_sequence_250um_gasket`, `2IRM_and_2CRM_750um_gasket`) with different strip volumes inside†; `pump_speed_calibration.txt` 1.3 vs 1.58 (see note); stray `slide1/slide.pos~`. | The tissue scanner drives the stage to another microscope's slide corners. The operator library differs. | Copy REF's `device/tissue_scanner/**`, `reagent_sequence_file/**` and `pump_speed_calibration.txt`. Delete `slide.pos~`. | GB24, N06-N10, F12 | |
 
-**Note on P21 (calibration file).** In **both** trees the file ends with a blank line (`1.58\r\n\r\n`), and the GUI reads `readlines()[-1]`, so the pump-speed field always opens **empty**. I verified this: Python returns `['1.58\n', '\n']`. So the 1.3 vs 1.58 value has no effect today; the operator types the speed every session. The N reviewer's "21% more reagent" claim (N04) is therefore wrong. See Q8.
+**Note on P21 (calibration file), corrected after review.** The value in the pump-speed field **does** set the pump run time, in both trees:
+1. Prime/Fill/Wash/Start do `fluidics.pumprate = float(field)`.
+2. Each step then runs the pump for `vol / pumprate` minutes, while the pump's nominal flow rate stays fixed at 1.5 (P13). So a higher measured rate means a shorter run.
+
+What is broken is only how the *file* pre-fills the field:
+- Start saves `field + "\n"`, and the field often already ends in a newline, so the file alternates between `1.58\r\n\r\n` and a single line.
+- `readlines()[-1]` then gives a blank default on alternate launches (GA10). Currently the file gives `['1.58\n', '\n']`, so it opens blank.
+- On the other launches the file value *is* the default. So the file value matters whenever it loads, and N04's 21% figure applies in those sessions.
+
+The file now holds Elm's 1.58 (commit `3393477`). For the fix, see GA10/Q8 in "Review decisions".
 
 ---
 
@@ -146,7 +176,7 @@ Each row will be one commit (or a tight group) in Step 3.
 - **#4:** don't fix it with `cancelSequence()`. That sends a pump stop REF never sends, and it raises if the pump is disconnected (P02).
 - **#11:** the 1.2 mL/min also affects prime, wash, the PBST flush and manual fills (about 80% volume).
 - **#16:** "mutually exclusive" holds only within one protocol family. There is no effect for generated names.
-- **§E calibration:** the value difference has no effect today, because the field always opens blank in both trees (P21 note).
+- **§E calibration:** the file value is used only on launches where it pre-fills the field. Because of the blank-line bug (GA10), that is every other launch. The value typed in the field always sets the pump run time (P21 note).
 - **§E `template.pos`:** differs only in line endings.
 - **Bundled packages:** identical in behavior to the env (C01).
 
