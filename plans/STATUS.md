@@ -23,7 +23,7 @@ Read this first when picking the work up in a new session. The plan itself is `p
 |---|---|
 | 1. Behaviour inventory | **Done.** Reviewed and decided with the user (see "Review decisions" in `docs/parity_inventory.md`). |
 | 2. Dry-run harness | **Done.** Checkpoint 2 passed: it caught the known regressions on the unchanged branch. |
-| 3. Fix loop | **Code fixes done** (commits below). Remaining: final full dry run, the checkpoint-3 summary, and updating the inventory's status column. |
+| 3. Fix loop | **Done.** Checkpoint 3 (`docs/dryrun_results/checkpoint3_summary.md`): the branch matches the reference apart from approved deviations, text/timing noise and shared bugs. |
 | 4. Micro-Manager demo run, then Elm water test | **Not started.** |
 
 ## Step 3: what was changed (one commit per item, on `reference-parity`)
@@ -65,19 +65,8 @@ Read this first when picking the work up in a new session. The plan itself is `p
 
 ## Remaining work, in order
 
-1. **Final full dry run** of `ref` vs `branch`, all scenarios:
-   ```
-   python -m dryrun.run --trees ref,branch --scenarios all --jobs 4 --fresh-trees --report docs/dryrun_results/checkpoint3_report.md
-   ```
-   Then write `docs/dryrun_results/checkpoint3_summary.md`, listing every remaining difference as one of:
-   - approved deviation;
-   - harness timing noise (heater temperature readings, thread order, the live-view race below);
-   - shared bug (D).
-
-   Push.
-2. **Update `docs/parity_inventory.md`:** add the commit hash to each decided row. Record two new observations from the dry runs, both present in the reference too:
-   - **D22:** the live-view thread can miss its `'end'` signal when the next step replaces `scope`, then loops until the program exits. Seen at 100× speed; unlikely in real time.
-   - **D23:** after Cancel during focus with "Skip alignment", mock alignment raises `FileNotFoundError` for the missing `offset<cycle>.csv`, so the automation thread exits with a traceback.
+1. ~~Final full dry run~~: done, checkpoint 3.
+2. ~~Inventory status column, D22, D23~~: done (`6a283f9`).
 3. **Ask the user** about the remaining D items, especially:
    - **D02:** a failed heat step leaves the run waiting forever. The `heater_fault` dry run shows it in both trees.
    - The `UnboundLocalError` (`name`) in the heater error handler, also in both trees.
