@@ -2,7 +2,7 @@
 
 **Repo:** `BarseqLab/Seq_o_matic_dev` (private), seeded from `BarseqLab/Seq_o_matics` with full history
 **Branch:** `reference-parity` (from upstream `main` @ `5e5adf0`). `main` of this repo holds the reviewed state.
-**Status:** plan only. Nothing below has been started.
+**Status:** in progress; see `plans/STATUS.md` for the current state and handoff notes.
 **Recorded:** 2026-10-05
 
 ## Goal
