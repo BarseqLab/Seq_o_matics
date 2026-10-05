@@ -5,7 +5,11 @@ These are values written directly in the Python code rather than in `config_file
 - **REF** = Elm reference `C:\Users\SVC_barseq\Seq_o_matics_2.5\` (paths relative to that folder).
 - **main** = upstream `BarseqLab/Seq_o_matics` `main` @ `5e5adf0` (paths relative to `code/`).
 
-The list was collected on 2026-10-05. **Decision pending:** whether, and how, to change these. Moving them into config is planned for a separate session. Nothing in this file has been changed yet.
+The list was collected on 2026-10-05.
+
+**Decision (2026-10-05):** for H1, H2 and H4-H6, use the REF value. For **H3, use 200 µm**. Moving values into config is planned for a separate session.
+
+**About H3.** The pre-position only parks the piezo before the focus sequence starts. The imaged planes are absolute positions: the piezo value from the position file (200.0 in every `cycle00.csv` on `E:\` since 2026-01) ± 30 µm in 1.5 µm steps. Real stack metadata confirms this: `ZPosition_um_Intended` runs 170 → 228.5 while `DA Z Stage-Position` stays at the parked value (185), because the piezo is hardware-sequenced. Changing 185 → 200 therefore does not move the stack. It only changes the first move, to 170 µm: a 30 µm jump instead of 15.
 
 ## 1. Values that differ between REF and main
 
