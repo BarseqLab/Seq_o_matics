@@ -193,6 +193,8 @@ class ImagingControlPanel:
     def tile_and_draw_thread(self):
         """Generate image tiles for the current cycle and plot their positions on the tile canvas."""
         self.app.scope.make_tile(self.app.current_cycle)
+        if self.app.scope.cancel_process == 1 and self.app.scope.maketiles_status != 1:
+            return  # cancelled before the tiles were made
         txt = _get_time() + "created tiles for " + self.app.current_cycle + "\n"
         add_highlight_mainwindow(txt)
         df = pd.read_csv(os.path.join(self.app.pos_path, 'tiledregoffset' + self.app.current_cycle + '.csv'))

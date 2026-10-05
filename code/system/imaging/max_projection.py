@@ -53,6 +53,10 @@ class MaxProjectionManager:
         p.live_plot=1
         check = p.maketiles_status
         while check == 0:
+            if p.cancel_process == 1:
+                print("maxprojection thread! Cancelled while waiting for tiles.")
+                p.maxprojection_name = 'end'
+                return
             time.sleep(5)
             check = p.maketiles_status
             print("maxprojection thread! I am waiting make tile finished!")
@@ -176,6 +180,7 @@ class MaxProjectionManager:
                 add_highlight_from_scope(txt)
                 update_process_bar(0)
                 update_process_label("process")
+                p.core.stop_stage_sequence('DA Z Stage')
                 p.core.set_position("DA Z Stage", p.piezo_middle_pos) # This is used when we have piezo
                 break
         #     #This part is used when we have piezo

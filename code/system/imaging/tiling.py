@@ -46,6 +46,9 @@ class TilingManager:
         p.cycle = cycle
         check = p.alignment_status
         while check == 0:
+            if p.cancel_process == 1:
+                print("Make tile thread! Cancelled while waiting for alignment.")
+                return
             time.sleep(5)
             check = p.alignment_status
             print("Make tile thread! I am waiting alignment finished!")

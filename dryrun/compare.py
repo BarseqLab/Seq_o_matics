@@ -179,7 +179,11 @@ def checks(d, scenario):
                 "; ".join(map(str, errs))[:200])
         if sc["steps"] == "prime_cancel":
             add("Prime run after the restart finished (PBST flush done)", "reached: Prime done" in steps)
-    if sc["steps"] != "cancel_restart":  # there, the restarted run is still going when the scenario ends
+    restarted = sc["steps"] == "cancel_restart" and sc.get("restart", True)
+    if sc["steps"] == "cancel_restart" and not restarted:
+        add("no program threads left waiting after Cancel", not f.get("threads"),
+            "; ".join(f"{t['name']}: {(t['stack'] or [''])[-1].strip()[:120]}" for t in f.get("threads", [])))
+    if not restarted:  # with a restart, the new run is still going when the scenario ends
         add("all serial ports closed at the end", not f.get("open_ports"), str(f.get("open_ports")))
         add("all DAQ channels released at the end", not f.get("reserved_daq"), str(f.get("reserved_daq")))
     cmds = [e["cmd"] for e in ev if e["kind"] == "command"]

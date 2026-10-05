@@ -53,6 +53,16 @@ SCENARIOS = {
         "process": ["Fluidics_sequence_geneseq01", "imagecycle00"],
         "server": 0, "aws": 0, "steps": "cancel_restart", "cancel_during": "heat",
     },
+    "cancel_focus": {
+        "description": "Imaging-only run; press Cancel while focusing the geneseq01 cycle (no restart).",
+        "process": ["imagecycle00", "imagecycle_geneseq01"],
+        "server": 0, "aws": 0, "steps": "cancel_restart", "cancel_during": "focus", "restart": False,
+    },
+    "cancel_maxproj": {
+        "description": "Imaging-only run; press Cancel after the first max-projection tile of geneseq01 (no restart).",
+        "process": ["imagecycle00", "imagecycle_geneseq01"],
+        "server": 0, "aws": 0, "steps": "cancel_restart", "cancel_during": "maxproj", "restart": False,
+    },
     "prime_cancel": {
         "description": "Press Prime, press Cancel during the fill, then press Prime again.",
         "process": ["imagecycle00"],
@@ -187,11 +197,19 @@ def run_cancel_restart(app, ctx):
     trace.record("driver", step="press Start, confirm pump speed")
     gui.call(app.start_btn_check)
     gui.call(app.start_btn_handler)
-    if SCENARIOS[ctx["scenario"]].get("cancel_during") == "heat":
+    sc = SCENARIOS[ctx["scenario"]]
+    during = sc.get("cancel_during", "pump")
+    if during == "heat":
         n0 = _n("daq_write", lambda e: e.get("channel") == "Dev3/ao0" and e.get("value") == 5.6)
         wait_until(lambda: _n("daq_write", lambda e: e.get("channel") == "Dev3/ao0" and e.get("value") == 5.6) > n0,
                    6 * 3600, "heat step started")
         clock.sleep(60)
+    elif during in ("focus", "maxproj"):
+        # cancel inside the geneseq01 imaging step: after 2 focus stacks, or after the first tile
+        folder = "focusgeneseq01" if during == "focus" else "geneseq01"
+        want = 2 if during == "focus" else 1
+        wait_until(lambda: _n("acquisition", lambda e: e["directory"].replace("\\", "/").endswith("/" + folder)) >= want,
+                   6 * 3600, f"{want} acquisition(s) in {folder}")
     else:
         wait_until(lambda: _n("pump_dispense") >= 2, 6 * 3600, "second pump step started")
         clock.sleep(30)
@@ -199,6 +217,8 @@ def run_cancel_restart(app, ctx):
     gui.call(app.cancel_btn_handler)
     settle(virtual_quiet=600, virtual_max=4 * 3600)
     trace.set_extra("after_cancel", {"open_ports": _ports(), "reserved_daq": _daq()})
+    if not sc.get("restart", True):
+        return
     trace.record("driver", step="press Start again, confirm pump speed")
     gui.call(app.start_btn_check)
     gui.call(app.start_btn_handler)
