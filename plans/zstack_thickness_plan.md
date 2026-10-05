@@ -1,8 +1,8 @@
 # Plan: configurable z-stack thickness
 
-**Status:** planning only. No code has changed yet.
-**Written:** 2026-10-05
-**Applies to:** this repo, `main` at `5e5adf0`. Line numbers below refer to that commit.
+**Status:** being implemented on branch `variable_stack_height`.
+**Written:** 2026-10-05. **Updated:** 2026-10-05 for `reference-parity`.
+**Applies to:** branch `variable_stack_height`, which starts from `reference-parity` at `9011677` (the bug fixes are already in). Line numbers in "Current code that this changes" refer to `9011677`.
 **Will be tested on:** Elm.
 
 ## Goal
@@ -29,7 +29,7 @@
 | Sub-stack size | Fixed 30 µm groups, rounded to a whole number of planes: 20 planes at a 1.5 µm step, the same depth as today's single projection. Every group starts on the same fixed spacing. |
 | Leftover planes at the end | If the leftover is half a group or less, add it to the last full group. If it is more than half a group, it becomes its own, shorter group. As a result, stacks up to 45 µm still give one projection. |
 | Sub-stack file names | `MAX_<pos>_z00.tif`, `_z01`, and so on, in the same cycle folder, used only when there are 2 or more groups. A single group keeps today's name, `MAX_<pos>.tif`. The pipeline will be adapted to read them. |
-| Bug-report fixes | Out of scope. Another agent is working on them (branch `reference-parity`). They will be replanned later. See the "Overlap with bug fixes" section. |
+| Bug-report fixes | Done on `reference-parity`, which this branch builds on. See the "Overlap with bug fixes" section. |
 | Testing | Unit tests offline, then directly on Elm. No `MMConfig_demo.cfg` run, because its channel names differ. |
 
 ## Open questions
@@ -40,19 +40,19 @@ None at the moment.
 
 | Location | What it does now | Problem |
 |---|---|---|
-| `system/imaging/position_utils.py:29-40` (`scope_constant`) | Hard-coded focus sweep ±40 µm (54 planes), max-projection stack −15 to +15 µm (20 planes), step 1.5 µm | Not configurable |
-| `system/imaging/imaging_system.py:88-97` | Computes `stack_num_focus` and `stack_num_maxpro` from those constants | Must come from the new settings |
-| `system/imaging/focus.py:62-104` | Builds the focus events: channels in the outer loop, planes in the inner loop, centered on `piezo[0]` from the cycle CSV | Range and step must come from the settings |
-| `system/imaging/focus.py:201-219` | Reads `<pos>_NDTiffStack.tif` with `tifffile`. When the channels differ it splits with a hard-coded `reshape(80, …)`. When they match it takes the argmax over both passes (2N planes) as an index into N plane positions. The sharpness crop `[800:2400]` is hard-coded. | Wrong number of planes; can index past the end; only the first file of a split stack is read; the whole stack is loaded into memory |
-| `system/imaging/focus.py:338`, `front_end/panels/imaging_control_panel.py:154-155` | 20 µm extreme-change threshold, hard-coded in two places | Must be a fraction of R |
-| `system/imaging/max_projection.py:104-121, 162` | Sets the channels per round and builds max-projection events from `scope_constant` | Range must come from the settings |
-| `system/imaging/max_projection.py:297-317` | Max over all planes for each channel. DIC uses plane 9. Writes one `MAX_<pos>.tif` | No sub-stacks; DIC index is hard-coded |
-| `system/imaging/max_projection.py:261, 295` | `thread_limiter.release()` is called but `acquire()` never is | No limit on concurrent threads; thicker stacks can run out of memory |
-| `system/imaging/max_projection.py:371-399` | Expects one file per tile | Must expect one file per tile per group |
-| `front_end/panels/imaging_control_panel.py:225-245` | Live view reads `MAX_<name>` | Must show one group |
-| `front_end/automation_controller.py:210-244` (`check_storage`) | Allows 102,400,920 bytes per tile per round (5 channels). Ignores raw and focus stacks. Its fallback file name is misspelled (`pre_adjust_pos.pos`). | **Never called**, here or in the reference copy |
-| `front_end/panels/fluidics_control_panel.py:224-241` (`start_btn_check`) | Popup that only confirms the pump speed | Needs the z-stack confirmation and the disk check |
-| `front_end/panels/workspace_panel.py:96, 172` | `scope.json` is loaded only when a workspace is selected | Edits to the JSON don't take effect until then |
+| `system/imaging/position_utils.py:20-45` (`scope_constant`) | Hard-coded focus sweep ±30 µm (40 planes; `reference-parity` P06), max-projection stack −15 to +15 µm (20 planes), step 1.5 µm | Not configurable |
+| `system/imaging/imaging_system.py:88-97` | Computes `stack_num_focus` and `stack_num_maxpro` from those constants. The `piezo == 0` branch uses constants that are commented out, so it raises `AttributeError`. | Must come from the new settings |
+| `system/imaging/focus.py:67-109` | Builds the focus events with `np.arange`: channels in the outer loop, planes in the inner loop, centered on `piezo[0]` from the cycle CSV. Both passes get the same axes when the channels match. | Range and step must come from the settings |
+| `system/imaging/focus.py:196-230` | Reads the whole `<pos>_NDTiffStack.tif` with `tifffile.imread`. Two passes (2N frames) → sharpness on pass 2, saved image from pass 1 (P07). Same channel → NDTiff keeps only pass 2, which is used for both. Crop `[800:2400]` is hard-coded. | Only the first file of a split stack is read; the whole stack is loaded into memory; crop ignores `imwidth` |
+| `system/imaging/focus.py:349`, `front_end/panels/imaging_control_panel.py:154-155` | 20 µm extreme-change threshold, hard-coded in two places | Must be a fraction of R |
+| `system/imaging/max_projection.py:101-126, 166-167` | Sets the channels per round and builds max-projection events from `scope_constant` | Range must come from the settings |
+| `system/imaging/max_projection.py:302-322` | Reads the whole stack with `skimage.io.imread`. Max over all planes for each channel. DIC uses plane 9. Writes one `MAX_<pos>.tif` | No sub-stacks; DIC index is hard-coded; memory grows with N |
+| `system/imaging/max_projection.py:265-269, 300` | `thread_limiter.release()` is called but `acquire()` never is | No limit on concurrent threads |
+| `system/imaging/max_projection.py:376-404` | Expects one file per tile | Must expect one file per tile per group |
+| `front_end/panels/imaging_control_panel.py:212-245` | Live view reads `scope.maxprojection_name` | Must show one group |
+| `front_end/automation_controller.py:213-247` (`check_storage`) | Allows 102,400,920 bytes per tile per round (5 channels). Ignores raw and focus stacks. Its fallback file name is misspelled (`pre_adjust_pos.pos`). | **Never called** (only wrapped by `Widgets.py:707`), here or in the reference copy |
+| `front_end/panels/fluidics_control_panel.py:265-282` (`start_btn_check`) | A second `tk.Tk()` popup that only confirms the pump speed | Needs the z-stack confirmation and the disk check |
+| `front_end/panels/workspace_panel.py:95-97, 171-173` | `scope.json` is loaded only when "Create experiment" is pressed | Edits to the JSON don't take effect until then |
 
 Hardware facts (from `C:\Program Files\Micro-Manager-2.0\MMConfig_Ti2E-xc2.cfg`):
 - Piezo (`DA Z Stage`) travel is 0–400 µm, with a start position of 200 µm.
@@ -114,7 +114,7 @@ Assumes a 1.5 µm imaging step. "Hyb" means a hyb round with 6 channels. Data si
 | 300 | 200 | 300 | 3 | 100 | 10 (20×10) | 100 | 4.1 GB | 24.6 GB | 1.2 GB |
 
 Notes:
-- At the defaults, the focus sweep is 60 µm. That is narrower than today's `main` (80 µm) and the same as the reference copy.
+- At the defaults, the focus sweep is 60 µm, the same as `reference-parity` and the reference copy (`main` uses 80 µm).
 - In the leftover rule, "half a group" is 10 planes (15 µm) at the defaults: a leftover of 10 or fewer planes is added to the last full group, and 11 or more becomes its own group.
 - Raw hyb stacks are split into several files from about T = 55 µm. With these settings the focus stack stays at 200 frames or fewer, so it fits in one file, but the reader handles split files either way.
 
@@ -128,12 +128,13 @@ Notes:
 
 ### Phase 2 – Focus acquisition and reading the stack
 - Build the events from the settings: an align pass, then a target pass, each with N_f planes.
-  - Each pass gets its own axis label, e.g. `{'channel': 'align', ...}` with `config_group = ['Channel', <real channel>]`. Otherwise two passes on the same channel get identical labels.
-- Read stacks with `ndtiff.Dataset` (2.2.1 is already bundled), one plane at a time, centre crop only. The crop size comes from `imwidth`.
+  - Each pass gets its own extra axis, `focus_pass` = 0 (align) or 1 (target). The `channel` axis keeps the real channel name, so the data still reads naturally in Micro-Manager. Without the extra axis, two passes on the same channel get identical labels and NDTiff keeps only the second.
+- Read stacks with a small NDTiff index reader in this repo (`system/imaging/ndtiff_stack.py`), one plane at a time. The sharpness crop is the centre half of the frame, from `imwidth` (`[800:2400]` at 3200).
   - This handles stacks split across several files and never loads the whole stack into memory.
+  - Not `ndtiff.Dataset`: the reader only needs the index format (same layout as bundled ndtiff 2.2.1), and the dry-run harness refuses to import the real `ndtiff`.
 - Sharpness is computed on the target pass. The saved alignment image comes from the align pass at the chosen plane.
-  - This changes today's behavior when both channels are the same: the current argmax over both passes (2N planes) is replaced. The current behavior can index past the end of the plane list.
-- Keep the raw focus stacks (no deletion). Also write a per-cycle `focus<cycle>/sharpness_<pos>.csv` with plane, piezo position and sharpness. It is needed to tune Phase 3 later.
+  - This changes today's behavior when both channels are the same: `reference-parity` uses the second pass for both, because NDTiff collapsed the two passes.
+- Keep the raw focus stacks after focusing. (`clean_space` still clears a cycle's old stacks when that same cycle is focused again, so the reader never picks up a stale `<pos>_1`.) Also write a per-cycle `focus<cycle>/sharpness_<pos>.csv` with plane, piezo position and sharpness. It is needed to tune Phase 3 later.
 - The extreme-change threshold is fraction × R, used in both `focus.py` and the focus plot.
 - `save_offset_and_json` needs no change: its 1.5 factors cancel, so it works for any step.
 
@@ -157,9 +158,9 @@ Notes:
 - Output file names:
   - K = 1: `MAX_<pos>.tif`, the same as today.
   - K > 1: `MAX_<pos>_z00.tif` … `_z{K−1}.tif`. Each file is channels × height × width, the same format as today. `z00` is the lowest piezo position.
-- Write `<cycle>_substacks.csv` next to the projections, listing each group's index, first and last plane, piezo start and end (µm) and number of planes, so the pipeline can map `_zNN` to depth.
-- Compute a running max per group while streaming planes through `ndtiff`. Memory then scales with C × K frames, not C × N.
-- Fix the thread limit: call `acquire()` before starting each worker, and size the limit to the available memory.
+- Write `<cycle>_substacks.csv` next to the projections, listing each group's index, first and last plane, piezo start and end (µm) and number of planes, so the pipeline can map `_zNN` to depth. It is written only when splitting is on (T > `maxproj_split_above_um`), so the output at the defaults is exactly today's.
+- Stream planes through the NDTiff reader, one group at a time. Memory per worker is then about C frames, whatever T is.
+- Fix the thread limit: call `acquire()` before starting each worker. The limit stays 10: with streaming, a worker holds about 6 × 20 MB, so 10 workers fit in memory at any T.
 - `check_transfer_complete` expects tiles × K files. Live view shows the middle group.
 
 ### Phase 5 – Disk check and confirmation window
@@ -184,8 +185,9 @@ Notes:
   - Group boundaries.
   - The disk estimate.
   - `band_center` on synthetic curves.
+- Dry-run harness (`dryrun/`, from `reference-parity`): every existing scenario on `ref` and `branch`, plus thick-stack scenarios (`imaging_thick_46`, `imaging_thick_100`) on `branch`. At the defaults the acquisition events must match the reference.
 - On Elm:
-  1. Default settings: the focus offsets, `dicfocus` images and `MAX_` files should match a run on the current code (apart from the intended 80 → 60 µm sweep).
+  1. Default settings: the focus offsets, `dicfocus` images and `MAX_` files should match a run on `reference-parity` (the sweep is 60 µm in both). When the align and target channels are the same, the `dicfocus` images now come from the first pass (intended).
   2. A thick stack: check that split stack files are read, that the groups and the CSV are written, that the disk estimate matches actual use, and that memory stays bounded.
      - 45 µm gives 1 group (30 planes); the leftover is added. Check the file name has no suffix.
      - 50 µm gives 2 groups (20/13); the leftover becomes its own group.
@@ -194,20 +196,20 @@ Notes:
 
 ## Overlap with bug fixes (branch `reference-parity`)
 
-The other agent's work and this plan both edit `system/imaging/focus.py`, `system/imaging/max_projection.py`, `front_end/automation_controller.py`, `front_end/panels/fluidics_control_panel.py` and `front_end/panels/imaging_control_panel.py`. Merge after the bug fixes and expect conflicts.
+This branch starts from `reference-parity` at `9011677`, so the bug fixes are already in and there is nothing to merge. Keep the fixes intact when editing the same functions.
 
-Relevant items from `BUG_REPORT_vs_reference.md`. That report is not in this repo; it is at `C:\Users\SVC_barseq\Seq_o_matics_2.5_production\BUG_REPORT_vs_reference.md`. The reference copy is `C:\Users\SVC_barseq\Seq_o_matics_2.5\`.
+Relevant items from `BUG_REPORT_vs_reference.md`. That report is not in this repo; it is at `C:\Users\SVC_barseq\Seq_o_matics_2.5_production\BUG_REPORT_vs_reference.md`. The reference copy is `C:\Users\SVC_barseq\Seq_o_matics_2.5\`. Inventory IDs (P..) are from `docs/parity_inventory.md`.
 
-| # | Summary | Relation to this plan |
-|---|---|---|
-| 1 | Normal fluidics completion never sets `start_image_event`, so automation hangs after the first fluidics step. | Must be fixed before any automated Elm test of this feature. |
-| 3 | The best-focus image is saved with a relative path to the program's working folder, so the `dicfocus*` folders stay empty and alignment aborts. | Same function as Phase 2. The fix should save to `focus<cycle>/` with an absolute path. |
-| 5 | Hard-coded `reshape(80, …)`. | Replaced by the Phase 2 reader. |
-| 6 | Focus sweep ±40 µm vs. ±30 µm in the reference copy. | Replaced by the formula for R (60 µm at the defaults). |
-| 14 | Focus acquisition changes (piezo pre-position, missing `stop_stage_sequence`, 4 → 2 worker threads). | Same function as Phase 2. |
-| 15 | The cancel path in max projection dropped `stop_stage_sequence`. | Same function as Phase 4. |
+| # | Summary | State on `reference-parity` | Relation to this plan |
+|---|---|---|---|
+| 1 | Normal fluidics completion never sets `start_image_event`, so automation hangs after the first fluidics step. | Fixed, P01 (`77596d4`) | Automated Elm tests are unblocked. |
+| 3 | The best-focus image is saved with a relative path, so the `dicfocus*` folders stay empty and alignment aborts. | Fixed, P03 (`446773c`): saved to `focus<cycle>/` with an absolute path | Phase 2 keeps that path. |
+| 5 | Hard-coded `reshape(80, …)`. | Fixed, P07 (`446773c`): split by `len(frames) == 2N` | Replaced by the Phase 2 reader. |
+| 6 | Focus sweep ±40 µm vs. ±30 µm in the reference copy. | Fixed, P06 (`446773c`): ±30 µm | The formula for R gives the same 60 µm at the defaults. |
+| 14 | Focus acquisition changes (piezo pre-position, missing `stop_stage_sequence`, 4 → 2 worker threads). | Fixed, P16 (`446773c`): `stop_stage_sequence`, 4 workers, piezo park at 200 µm (approved, H3) | Phase 2 keeps all three. |
+| 15 | The cancel path in max projection dropped `stop_stage_sequence`. | Fixed, P17 (`618593f`) | Phase 4 keeps it. |
 
-Checked on 2026-10-05:
+Checked on 2026-10-05 (before the fixes):
 - **#1 and #3 are new in the refactor.** Both appear in GitHub commit `dc55b5a` ("Commit to production level", 2026-04-01). Neither is in the reference copy or in the 2024 initial commit.
 - **#1:** the reference copy polls the integer flag `start_image` (reference `front_end/Widgets.py:1255-1260`), which `runSequence` sets to 1 at the end of a sequence. The refactor waits on `start_image_event` instead (`automation_controller.py:105`). The end-of-sequence path (`fluidics_exchange_system.py:384-400`) still sets only the integer. The event is set only in `finishSequence()`, which nothing calls.
 - **#3:** the reference copy runs `os.chdir(<pos_path>/focus<cycle>)` before saving (reference `image_acquisition_and_analysis_system.py:435`), then saves `pos + ".tif"` (:379-381). The refactor removed every `os.chdir` but kept the relative file name, so the images land in the folder the GUI was launched from. Then:
@@ -215,4 +217,3 @@ Checked on 2026-10-05:
   - Both `dicfocus` folders have 0 images, so the count check passes.
   - `alignment.py:130-134` aborts with "The number of images is different from slice numbers."
 - No stray `Pos*.tif` files are in the launch folders on this PC, so the refactored focus step has probably not been run here. Anyone running the reference code, including Elm, would not see either bug.
-- At this date, `reference-parity` has not changed these lines yet.
