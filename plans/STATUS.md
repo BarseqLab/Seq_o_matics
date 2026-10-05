@@ -24,7 +24,7 @@ Read this first when picking the work up in a new session. The plan itself is `p
 | 1. Behaviour inventory | **Done.** Reviewed and decided with the user (see "Review decisions" in `docs/parity_inventory.md`). |
 | 2. Dry-run harness | **Done.** Checkpoint 2 passed: it caught the known regressions on the unchanged branch. |
 | 3. Fix loop | **Done.** Checkpoint 3 (`docs/dryrun_results/checkpoint3_summary.md`): the branch matches the reference apart from approved deviations, text/timing noise and shared bugs. |
-| 4. Micro-Manager demo run, then Elm water test | **Not started.** |
+| 4. Micro-Manager demo run, then Elm water test | 4a **stopped at the user's request** (2026-10-05); 4b, the Elm water test, is next. |
 
 ## Step 3: what was changed (one commit per item, on `reference-parity`)
 
@@ -70,7 +70,11 @@ Read this first when picking the work up in a new session. The plan itself is `p
 3. **Ask the user** about the remaining D items, especially:
    - **D02:** a failed heat step leaves the run waiting forever. The `heater_fault` dry run shows it in both trees.
    - The `UnboundLocalError` (`name`) in the heater error handler, also in both trees.
-4. **Step 4a, Micro-Manager demo:** run the branch with `C:\Program Files\Micro-Manager-2.0\MMConfig_demo.cfg`, the real pycromanager, and fluidics faked. This needs a small runner variant that does not install the pycromanager fake.
+4. **Step 4a, Micro-Manager demo: stopped by the user** to go straight to Elm. What was learned:
+   - The harness has a demo mode, `--mm-config <cfg> --speed 1`: real pycromanager plus a headless Micro-Manager, with fluidics faked. It refuses to start if port 4827 is in use.
+   - With the stock `MMConfig_demo.cfg`, the run fails at once: there is no `DA Z Stage`.
+   - With `dryrun/mm/MMConfig_elm_demo.cfg` (Elm device names and all 12 Channel presets), **both REF and branch** fail at the first `stop_stage_sequence` ("Unsupported device command": the demo stage was not sequenceable). The focus thread dies and the run waits.
+   - The config now sets `UseSequences=Yes` on the demo `DA Z Stage`, but this was not run again.
 5. **Step 4b, Elm water test** (with the user, on the scope):
    - Prime / Wash, including Cancel during Prime.
    - A short automated run with water and no sample, including Cancel mid-pump and Start again.

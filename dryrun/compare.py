@@ -224,11 +224,16 @@ def checks(d, scenario):
         add("AWS upload only if 'upload to AWS' is ticked", aws == bool(sc["aws"]),
             f"ticked={bool(sc['aws'])}, uploaded={aws}")
     files = f.get("files_exp", {})
-    cycles = sorted({os.path.basename(e["directory"].replace("\\", "/"))[len("focus"):] for e in ev
-                     if e["kind"] == "acquisition" and e.get("true_best_piezo") is not None})
-    for cyc in cycles:
+    # focus cycles = focus<cycle>/ folders holding datasets (works with fake or real Micro-Manager)
+    datasets = {}
+    for k in files:
+        parts = k.split("/")
+        if len(parts) >= 3 and parts[0].startswith("focus") and parts[2].endswith("_NDTiffStack.tif"):
+            datasets.setdefault(parts[0][len("focus"):], set()).add(parts[1])
+    for cyc in sorted(datasets):
         n = sum(1 for k in files if k.startswith(f"dicfocus{cyc}/") and k.endswith(".tif"))
-        add(f"dicfocus{cyc}/ holds the 4 best-focus images", n == 4, f"{n} files")
+        want = len(datasets[cyc])
+        add(f"dicfocus{cyc}/ holds the {want} best-focus images", n == want, f"{n} files")
     stray = f.get("files_in_program_folder", [])
     add("no image files written into the program folder", not [s for s in stray if s.endswith(".tif")], str(stray))
     fr = focus_results(d)

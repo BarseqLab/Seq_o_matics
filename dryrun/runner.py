@@ -25,6 +25,8 @@ def main():
     ap.add_argument("--imwidth", type=int, default=1024)
     ap.add_argument("--stall", type=float, default=3 * 3600, help="virtual seconds without progress = hang")
     ap.add_argument("--max-virtual", type=float, default=96 * 3600)
+    ap.add_argument("--mm-config", default=None,
+                    help="use REAL pycromanager with a headless Micro-Manager started on this (demo) config")
     args = ap.parse_args()
 
     tree = os.path.abspath(args.tree)
@@ -34,7 +36,12 @@ def main():
     from dryrun import guard, fake_serial, fake_nidaqmx, fake_pycromanager
     fake_serial.install()
     fake_nidaqmx.install()
-    fake_pycromanager.install()
+    if args.mm_config:
+        # Micro-Manager demo run: the microscope side is the real pycromanager talking to a
+        # headless Micro-Manager with demo devices; pump, selectors and heaters stay faked.
+        guard.BLOCKED = ("serial", "nidaqmx")
+    else:
+        fake_pycromanager.install()
     guard.install()
 
     # 2. Heavy libraries bind the real datetime class before the clock is patched.
@@ -46,6 +53,8 @@ def main():
     from dryrun import clock, trace, images, fake_os, gui, scenarios
     clock.install(args.speed)
     fake_nidaqmx.MODEL.t_last = clock.vnow()
+    if args.mm_config:
+        start_demo_micromanager(args.mm_config)  # before fake_os: it launches the Java process
     fake_os.install()
     images.IMWIDTH = args.imwidth
     images.set_surfaces([(p[0], p[3], p[4]) for p in scenarios.POSITIONS])
@@ -71,6 +80,8 @@ def main():
         trace.set_extra("guard_problems", guard.check())
         trace.dump(args.out, status=status, detail=detail, virtual_end=round(clock.vnow(), 1))
         sys.stdout.flush()
+        if args.mm_config:
+            stop_demo_micromanager()
         os._exit(0)
 
     ctx = {"scenario": args.scenario, "exp_dir": exp_dir, "pump_speed": args.pump_speed}
@@ -124,6 +135,34 @@ def main():
         trace.record("exception", where="mainwindow", traceback=traceback.format_exc()[-4000:])
         finalize("startup_error", traceback.format_exc()[-2000:])
     finalize("mainloop_exited")
+
+
+MM_APP = r"C:\Program Files\Micro-Manager-2.0"
+
+
+def start_demo_micromanager(cfg):
+    """Start a headless Micro-Manager (Java) with a demo config, refusing if one is already listening."""
+    import socket
+    from dryrun import trace
+    with socket.socket() as s:
+        if s.connect_ex(("127.0.0.1", 4827)) == 0:
+            raise RuntimeError("Something already listens on port 4827 (a running Micro-Manager?). "
+                               "Refusing to start: the program would talk to it instead of the demo.")
+    from pycromanager import start_headless
+    start_headless(MM_APP, os.path.abspath(cfg), port=4827)
+    from pycromanager import Core
+    core = Core()
+    trace.set_extra("micromanager_demo", {"config": os.path.abspath(cfg), "camera": core.get_camera_device(),
+                                          "focus": core.get_focus_device(),
+                                          "xy": core.get_xy_stage_device()})
+
+
+def stop_demo_micromanager():
+    try:
+        from pycromanager.headless import stop_headless
+        stop_headless()
+    except Exception as e:
+        print(f"could not stop headless Micro-Manager: {e}")
 
 
 def collect_final(tree, exp_dir, maxdrive):

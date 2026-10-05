@@ -79,7 +79,7 @@ def apply_test_config(tree, maxdrive, imwidth, extra=None):
 
 def run_one(tree_name, scenario, scratch, args):
     from dryrun import scenarios
-    run_dir = os.path.join(scratch, "runs", f"{tree_name}__{scenario}")
+    run_dir = os.path.join(scratch, "runs", f"{tree_name}__{scenario}{args.run_suffix}")
     if os.path.exists(run_dir):
         shutil.rmtree(run_dir)
     os.makedirs(run_dir)
@@ -93,6 +93,10 @@ def run_one(tree_name, scenario, scratch, args):
     out = os.path.join(run_dir, "trace.json")
     cmd = [PYTHON, "-m", "dryrun.runner", "--tree", tree, "--scenario", scenario, "--exp", exp,
            "--maxdrive", maxdrive, "--out", out, "--speed", str(args.speed), "--imwidth", str(args.imwidth)]
+    if args.mm_config:
+        cmd += ["--mm-config", args.mm_config]
+    if args.stall:
+        cmd += ["--stall", str(args.stall)]
     t0 = time.time()
     with open(os.path.join(run_dir, "console.log"), "w", encoding="utf-8", errors="replace") as log:
         env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONPATH=WORKTREE)
@@ -132,6 +136,11 @@ def main():
     ap.add_argument("--report", default=None)
     ap.add_argument("--fresh-trees", action="store_true")
     ap.add_argument("--report-only", action="store_true", help="rebuild the report from existing runs")
+    ap.add_argument("--mm-config", default=None,
+                    help="Micro-Manager demo run: real pycromanager + headless Micro-Manager on this config "
+                         "(runs one at a time; use --speed 1)")
+    ap.add_argument("--run-suffix", default="", help="added to run folder names, e.g. __mmdemo")
+    ap.add_argument("--stall", type=float, default=None, help="virtual seconds without progress = hang")
     args = ap.parse_args()
 
     trees = args.trees.split(",")
@@ -141,7 +150,7 @@ def main():
     if args.report_only:
         infos = []
         for t, s in jobs:
-            p = os.path.join(args.scratch, "runs", f"{t}__{s}", "run_info.json")
+            p = os.path.join(args.scratch, "runs", f"{t}__{s}{args.run_suffix}", "run_info.json")
             if os.path.exists(p):
                 with open(p) as f:
                     infos.append(json.load(f))
