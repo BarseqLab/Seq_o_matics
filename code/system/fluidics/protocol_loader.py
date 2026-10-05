@@ -23,20 +23,22 @@ def get_time() -> str:
     return str(datetime.now(time_now))[0:19] + "\n"
 
 
-# Maps process type keywords to their JSON filename.
-# Order matters: more specific patterns (with "rehyb") must be checked first.
+# Maps process type keywords to their JSON filename, checked in this order (the
+# reference's if/elif order, so a name matching several patterns loads the same file).
+# None = user-defined: the file is named after the process itself.
 PROTOCOL_MAP = [
     # (condition_func, filename)
     (lambda t: "geneseq" in t and "01" in t, "Fluidics_sequence_geneseq01.json"),
     (lambda t: "bcseq" in t and "01" in t, "Fluidics_sequence_bcseq01.json"),
     (lambda t: "geneseq" in t and "01" not in t, "Fluidics_sequence_geneseq02+.json"),
     (lambda t: "bcseq" in t and "01" not in t, "Fluidics_sequence_bcseq02+.json"),
-    (lambda t: "add_gene_primer" in t and "rehyb" in t, "Fluidics_sequence_add_gene_primer_rehyb.json"),
-    (lambda t: "add_bc_primer" in t and "rehyb" in t, "Fluidics_sequence_add_bc_primer_rehyb.json"),
-    (lambda t: "HYB" in t and "rehyb" in t, "Fluidics_sequence_HYB_rehyb.json"),
+    (lambda t: "user_defined" in t, None),
+    (lambda t: "HYB" in t and "rehyb" not in t, "Fluidics_sequence_HYB.json"),
     (lambda t: "add_gene_primer" in t and "rehyb" not in t, "Fluidics_sequence_add_gene_primer.json"),
     (lambda t: "add_bc_primer" in t and "rehyb" not in t, "Fluidics_sequence_add_bc_primer.json"),
-    (lambda t: "HYB" in t and "rehyb" not in t, "Fluidics_sequence_HYB.json"),
+    (lambda t: "HYB" in t and "rehyb" in t, "Fluidics_sequence_HYB_rehyb.json"),
+    (lambda t: "add_gene_primer" in t and "rehyb" in t, "Fluidics_sequence_add_gene_primer_rehyb.json"),
+    (lambda t: "add_bc_primer" in t and "rehyb" in t, "Fluidics_sequence_add_bc_primer_rehyb.json"),
     (lambda t: "strip" in t, "Fluidics_sequence_strip.json"),
 ]
 
@@ -60,14 +62,10 @@ def load_protocol(protocol_type: str, sequence_dir: str, backup_dir: str, write_
     Raises:
         FileNotFoundError: If no matching protocol is found.
     """
-    # Handle user-defined protocols
-    if "user_defined" in protocol_type:
-        file_name = protocol_type + ".json"
-        return _load_and_copy(file_name, sequence_dir, backup_dir, write_log)
-
-    # Match against known protocol patterns
     for condition, file_name in PROTOCOL_MAP:
         if condition(protocol_type):
+            if file_name is None:
+                file_name = protocol_type + ".json"
             return _load_and_copy(file_name, sequence_dir, backup_dir, write_log)
 
     raise FileNotFoundError(f"No protocol found for type: {protocol_type}")
