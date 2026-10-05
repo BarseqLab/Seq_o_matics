@@ -392,7 +392,9 @@ class FluidicSystem():
             self.long_heat=0
             # Signal to the automation controller that this cycle's fluidics are done
             self.cycle_done = 1
+            self.cycle_done_event.set()
             self.start_image=1
+            self.start_image_event.set()
             self.sequenceIndex = 0
             self.sequenceStatus = 0
             self.last_sequenceStatus = SequenceState.FINISHED
