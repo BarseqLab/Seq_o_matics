@@ -203,8 +203,10 @@ class heat_stage_group(HeaterDevice):
                 self.status[i]=1
 
         except Exception as e:
-            logger.error("Device %s heating error: %s", name, e)
+            # Mark the stage as failed and return it to image mode before anything else.
+            self.status[i] = 0
             self.do_task[i].write(self.image_mode)
+            logger.error("Device %s heating error: %s", self.dev_name[i], e)
             self.result_queue.put((i, f"Error in device {name}: {str(e)}"))
             txt = get_time() + f"Device {name}  has error!\n"
             self.write_log(txt)
