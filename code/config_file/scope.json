@@ -14,7 +14,7 @@
 "Hyb_focus_target_channel":"Hyb-DAPI",
 "maxproject_drive":"D:\\",
 "align_channel":"Hyb-DAPI",
-"z_stack_thickness_um":30,
+"z_stack_thickness_um":200,
 "z_step_um":1.5,
 "focus_step_um":1.5,
 "focus_step_thick_um":3,

@@ -46,13 +46,13 @@ class TestDefaults(unittest.TestCase):
             np.testing.assert_array_equal(s.focus_planes(middle), np.arange(middle - 30, middle + 30, 1.5))
             np.testing.assert_array_equal(s.imaging_planes(middle), np.arange(middle - 15, middle + 15, 1.5))
 
-    def test_repo_scope_json_keys_are_the_defaults(self):
+    def test_repo_scope_json_sets_every_key_validly(self):
         import json
         with open(os.path.join(CODE, "config_file", "scope.json")) as f:
             cfg = json.load(f)[0]
-        s = Z.from_config(cfg)
-        self.assertEqual(s.extreme_threshold(), Z().extreme_threshold())
-        self.assertEqual(s.as_dict() | {"focus_extreme_change_frac": 0}, Z().as_dict() | {"focus_extreme_change_frac": 0})
+        self.assertEqual(sorted(k for k in Z().as_dict() if k not in cfg), [])
+        errors, _ = Z.from_config(cfg).validate((0, 400), [200.0])
+        self.assertEqual(errors, [])
 
 
 class TestWorkedExamples(unittest.TestCase):
