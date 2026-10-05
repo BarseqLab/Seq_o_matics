@@ -27,7 +27,7 @@ No code changes until this is reviewed.
 | **B** | Regression: REF is right, NEW differs | Fix NEW to match REF | 21 (§1) |
 | **A** | NEW fixes a real REF bug | Keep NEW | 6 (§2) |
 | **?** | Needs your decision | (open) | 8 (§3) |
-| **D** | Bug in **both** trees | List only, do not fix | 20 (§4) |
+| **D** | Bug in **both** trees | List only, do not fix | 23 (§4) |
 | **C** | Neutral or cosmetic difference | Keep NEW unless noted | 13 (§5) |
 
 ## Review decisions (2026-10-05)
@@ -54,6 +54,34 @@ Context from the user: **Elm currently runs on REF.** No other version has been 
 | Group C, group D | defaults (C keep / small restores; D leave), except D items now covered by Q1/Q2/Q5/Q8 |
 
 ---
+
+## Fix status (step 3, 2026-10-05)
+
+| Item(s) | Commit | Notes |
+|---|---|---|
+| P04, P05, P21 | `3393477` | Elm config and data byte-identical to REF |
+| P01 | `77596d4` | |
+| P02, Q1, D21, D03 | `17e163e` | Cancel: no PBST flush; pump stopped; all devices released (approved deviation) |
+| P03, P06, P07, P16, Q3, H3 | `446773c` | Piezo park 200 µm (approved) |
+| P10, P11, P12, P19, Q5 | `e4e112b` | |
+| P13 | `c7b3d3f` | |
+| P08, P09 | `3aaf605` | |
+| P14 | `7865564` | |
+| P17, Q2 | `618593f` | |
+| P18 | `9587a2b` | Unit test vs the REF if/elif chain |
+| P20 | `e1e1f0f` | |
+| P15, Q7 | `22e3c3e` | `imwrite` kept (A2) |
+| Q4, C03 | `f665043` | |
+| GA10, Q8 | `3488ea6` | |
+| C02 | `51fce95` | |
+| C04, C05, C06, C08, C09 | `cbd3473` | |
+| Q6 | not changed | user decision |
+| C01, C07, C10, C11, C13 | not changed | keep |
+| C12 | partly (`e4e112b` adds zstandard) | rest in the separate hard-coded/packaging session |
+| D01 (= Q2) | `618593f` | |
+| D02, D04–D20, D22, D23 | not changed | shared bugs, listed only |
+
+Evidence that each fix works is in `docs/dryrun_results/` (checkpoint 3).
 
 ## 1. Group B: regressions to fix (NEW → REF behavior)
 
@@ -149,6 +177,8 @@ The file now holds Elm's 1.58 (commit `3393477`). For the fix, see GA10/Q8 in "R
 | D19 | Max-projection semaphore never acquired, so threads are unbounded (memory pressure if projection lags). | I18 | |
 | D20 | A second acquisition failure kills the max-projection thread, and the run waits until Cancel. Also: `~bool` in `Assign_image_channel` (no effect). | I19, I20 | |
 | D21 | **Cancel in an automated run never disconnects the devices.** Afterwards, COM9/COM10/COM11 stay open and the Dev3 heater channels stay reserved. Pressing Start again then fails in `connect_selector` with `SerialException ... COM11: Access is denied`, so the operator must restart the program. The pump itself reconnects, because its old object is garbage-collected. Shown by the dry run `cancel_restart` in both trees, 2026-10-05. Fix together with the deferred Cancel/pump-stop work, because `disconnect_pump` sends the pump stop. | `docs/dryrun_results/checkpoint2_summary.md` | |
+| D22 | The live-view thread reads `scope.maxprojection_name` every 5 s. If the next step replaces `scope` before the thread sees `'end'`, it loops forever and keeps the program alive at exit. Seen in the dry run (100× speed); unlikely at real speed. | dry run `auto_full` | |
+| D23 | Cancel during focus with "Skip alignment": the mock alignment then reads a missing `offset<cycle>.csv`, so the automation thread ends with `FileNotFoundError` (no hang, no device effect). | dry run `cancel_focus` | |
 
 ---
 
