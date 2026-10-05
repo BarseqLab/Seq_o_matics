@@ -65,7 +65,7 @@ class StatusPanel:
             os.system(cmd)
             txt = _get_time() + "local note saved to experiment_detail.txt, and uploaded to server!" + "\n"
             add_highlight_mainwindow(txt)
-        except OSError as e:
+        except Exception:
             txt = _get_time() + "local note saved to experiment_detail.txt, upload to server is failed!"
             add_highlight_mainwindow(txt)
 
