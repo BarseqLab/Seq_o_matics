@@ -85,7 +85,7 @@ class IsmatecPumpDevice(PumpDevice):
             volumeToPump: Volume to pump in mL.
             rate: Flow rate in mL/min.
         """
-        logger.info("Pumping %.2f mL at %.2f mL/min", volumeToPump, rate)
+        logger.info("Pumping %.2f mL at %.2f mL/min", float(volumeToPump), float(rate))
         self.driver.setFlowVolumeAndRate(volumeToPump, (1.0 * float(volumeToPump) / (rate)))
         self.driver.startPump()
 

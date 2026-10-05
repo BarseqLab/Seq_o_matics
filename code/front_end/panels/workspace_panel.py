@@ -88,9 +88,8 @@ class WorkspacePanel:
             open(os.path.join(self.app.pos_path, "temp.txt"), 'w')
         if not os.path.exists(os.path.join(self.app.pos_path, "log.txt")):
             open(os.path.join(self.app.pos_path, "log.txt"), 'w')
-        # Attach Python logging file handler to the experiment log
-        from logging_config import update_log_file
-        update_log_file(os.path.join(self.app.pos_path, "log.txt"))
+        # log.txt holds only the program's own log lines, once each (as in the reference);
+        # the extra logging messages go to the GUI panels and the console.
         self.app.server = self.app.account_field_auto.get() + "@" + self.app.server_field_auto.get()
         self.app.assign_cycle_detail()
         with open(os.path.join("config_file", "scope.json"), 'r') as r:
@@ -168,9 +167,6 @@ class WorkspacePanel:
             self.app.max_btn["state"] = "normal"
         if not os.path.exists(os.path.join(self.app.pos_path, "log.txt")):
             open(os.path.join(self.app.pos_path, "log.txt"), 'a').close()
-        # Attach Python logging file handler to the experiment log
-        from logging_config import update_log_file
-        update_log_file(os.path.join(self.app.pos_path, "log.txt"))
         print(self.app.slice_per_slide)
         with open(os.path.join("config_file", "scope.json"), 'r') as r:
             self.app.scope_cfg = json.load(r)
