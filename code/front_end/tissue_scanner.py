@@ -308,11 +308,9 @@ class tissue_scan():
                 image = cv2.resize(img[index, :, :], None, fx=self.scale_factor, fy=self.scale_factor)
                 x = j * self.tile_width
                 y = i * self.tile_height
-                image=cv2.flip(image, -1)
                 self.stitched_image[y:y + self.tile_height, x:x + self.tile_width] = image
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(self.stitched_image)
-        self.stitched_image_rt = enhanced
+        # Tiles are placed as acquired (no per-tile flip, no contrast enhancement), as in the reference.
+        self.stitched_image_rt = self.stitched_image
         tiff.imwrite(os.path.join("device", "tissue_scanner",slide,"stitched_image_check.tif"), self.stitched_image_rt)
 
 
