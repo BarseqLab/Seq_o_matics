@@ -69,6 +69,7 @@ class heat_stage_group(HeaterDevice):
         self.status=[0]*self.num_devices
         self.pos_path=pos_path
         self.heat_status=0
+        self.heating = False
 
 
     # --- HeaterDevice interface methods ---
@@ -220,6 +221,21 @@ class heat_stage_group(HeaterDevice):
             heattime: Duration to hold at target temperature in seconds.
         """
         self.heat_time=heattime
+        self.heating = True
+        try:
+            self._heat_all_stages()
+        finally:
+            self.heating = False
+
+    def wait_until_idle(self, timeout_s: float) -> bool:
+        """Wait until no heat step is running (used by Cancel before releasing the DAQ)."""
+        waited = 0.0
+        while self.heating and waited < timeout_s:
+            time.sleep(1)
+            waited += 1
+        return not self.heating
+
+    def _heat_all_stages(self) -> None:
         threads=[]
         self.start_heat()
         self.result_queue = queue.Queue()

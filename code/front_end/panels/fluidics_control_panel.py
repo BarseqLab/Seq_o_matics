@@ -15,6 +15,7 @@ from front_end.logwindow import (
     add_highlight_mainwindow, add_fluidics_status, widge_attr,
 )
 from system.fluidics_exchange_system import FluidicsConstants
+from system.fluidics.sequence_runner import SequenceState
 
 
 def _get_time():
@@ -84,12 +85,20 @@ class FluidicsControlPanel:
         """Wait until the fluidics cycle completes, then flush the in-chamber line with PBST and disconnect devices."""
         # Wait for cycle completion using event instead of polling
         self.app.fluidics.cycle_done_event.wait()
+        if self.app.fluidics.sequenceStatus == SequenceState.CANCELLED:
+            # Cancel stops here: no in-chamber PBST flush. Cancel already released the devices.
+            txt = _get_time() + "Wash/Prime cancelled, in-chamber PBST flush skipped\n"
+            add_highlight_mainwindow(txt)
+            self.app.write_log(txt)
+            return
         txt = _get_time() + "Now starting in chamber line\n"
         add_fluidics_status(txt)
         self.app.write_log(txt)
         self.app.fluidics.setSource("PBST")
         self.app.fluidics.pumpVol(4, self.app.fluidics.pumprate)
         time.sleep((float(4) / self.app.fluidics.pumprate) * 60 + 5)
+        if self.app.fluidics.sequenceStatus == SequenceState.CANCELLED:
+            return  # cancelled during the flush; Cancel already stopped and released the devices
         txt = _get_time() + "Finish in chamber line! Wash/Prime line Done!\n"
         add_highlight_mainwindow(txt)
         self.app.write_log(txt)

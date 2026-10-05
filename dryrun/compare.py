@@ -15,6 +15,7 @@ import pandas as pd
 
 TS = re.compile(r"\d{4}-\d\d-\d\d[ T]\d\d:\d\d(:\d\d(\.\d+)?)?([+-]\d\d:\d\d)?")
 QUERY_CMDS = {"E"}
+RUN = re.compile(r"runs/[^/]+__[^/]+/")
 
 
 def load(path):
@@ -36,7 +37,8 @@ def _norm_factory(d):
         for a, b in subs:
             s = s.replace(a, b)
         s = TS.sub("<T>", s)
-        return s.replace("\\", "/")
+        s = RUN.sub("runs/<RUN>/", s.replace("\\", "/"))
+        return s
     return norm
 
 
@@ -57,9 +59,16 @@ def channels(d):
         ch[f"{dev} moves"] = [str(e["position"]) for e in ev if e["kind"] == "selector" and e["dev"] == dev]
     ch["serial ports"] = [f"{e['kind']} {e['port']} {e.get('reason', '')}".strip() for e in ev
                           if e["kind"] in ("serial_open", "serial_close", "serial_close_by_gc", "serial_open_failed")]
-    ch["DAQ"] = [f"{e['kind']} {e.get('ch_kind', '')} {e.get('channel', '')} {e.get('value', '')} {e.get('reason', '')}".split()
-                 for e in ev if e["kind"] in ("daq_add_channel", "daq_write", "daq_error", "daq_task_gc_not_closed")]
-    ch["DAQ"] = [" ".join(x) for x in ch["DAQ"]]
+    # heater stages run in parallel threads, so DAQ activity is compared per channel
+    daq = {}
+    for e in ev:
+        if e["kind"] in ("daq_add_channel", "daq_write", "daq_error"):
+            what = {"daq_add_channel": "open", "daq_write": f"write {e.get('value')}",
+                    "daq_error": f"ERROR {e.get('reason')}"}[e["kind"]]
+            daq.setdefault(e.get("channel", "?"), []).append(what)
+        elif e["kind"] == "daq_task_gc_not_closed":
+            daq.setdefault("(tasks)", []).append("task discarded without close")
+    ch["DAQ (per channel)"] = [f"{c}: {' | '.join(v)}" for c, v in sorted(daq.items())]
     ch["microscope (Core) calls"] = []
     for e in ev:
         if e["kind"] == "core":
@@ -147,26 +156,32 @@ def checks(d, scenario):
     if sc["steps"] == "prime_wash":
         add("Prime finished (PBST flush done)", "reached: Prime done" in steps)
         add("Wash finished", "reached: Wash done" in steps)
-    if sc["steps"] == "cancel_restart":
+    if sc["steps"] in ("cancel_restart", "prime_cancel"):
         t_cancel = next((e["t"] for e in ev if e["kind"] == "driver" and e["step"] == "press Cancel"), None)
-        t_restart = next((e["t"] for e in ev if e["kind"] == "driver" and e["step"].startswith("press Start again")), None)
+        t_restart = next((e["t"] for e in ev if e["kind"] == "driver" and " again" in e["step"]), None)
         if t_cancel is not None:
             disp = [e for e in ev if e["kind"] == "pump_dispense" and e["t"] <= t_cancel]
             stops = [e for e in ev if e["kind"] == "pump" and e["cmd"] == "I" and e["t"] >= t_cancel]
             running = bool(disp) and disp[-1]["t"] + disp[-1]["duration_s"] > t_cancel
-            add("pump stops when Cancel is pressed (known gap, change deferred)",
-                not running or (stops and stops[0]["t"] < disp[-1]["t"] + disp[-1]["duration_s"]),
+            add("pump stops when Cancel is pressed",
+                not running or (bool(stops) and stops[0]["t"] < disp[-1]["t"] + disp[-1]["duration_s"]),
                 f"pump was mid-dispense; no stop sent" if running and not stops else "")
+            later = [e for e in ev if e["kind"] == "pump_dispense" and t_cancel < e["t"] < (t_restart or 1e18)]
+            add("no further pumping after Cancel (until restarted)", not later,
+                "; ".join(f"{e['volume_ml']} mL at t={e['t']:.0f}" for e in later)[:200])
         after = d.get("after_cancel", {})
         add("after Cancel, serial ports released", not after.get("open_ports"), str(after.get("open_ports")))
         add("after Cancel, DAQ channels released", not after.get("reserved_daq"), str(after.get("reserved_daq")))
         if t_restart is not None:
             again = [e for e in ev if e["kind"] == "pump_dispense" and e["t"] > t_restart]
             errs = [e.get("error") for e in ev if e["kind"] == "exception" and e["t"] > t_restart]
-            add("pressing Start again after Cancel starts a new run", bool(again) and not errs,
+            add("pressing Start/Prime again after Cancel runs again", bool(again) and not errs,
                 "; ".join(map(str, errs))[:200])
-    add("all serial ports closed at the end", not f.get("open_ports"), str(f.get("open_ports")))
-    add("all DAQ channels released at the end", not f.get("reserved_daq"), str(f.get("reserved_daq")))
+        if sc["steps"] == "prime_cancel":
+            add("Prime run after the restart finished (PBST flush done)", "reached: Prime done" in steps)
+    if sc["steps"] != "cancel_restart":  # there, the restarted run is still going when the scenario ends
+        add("all serial ports closed at the end", not f.get("open_ports"), str(f.get("open_ports")))
+        add("all DAQ channels released at the end", not f.get("reserved_daq"), str(f.get("reserved_daq")))
     cmds = [e["cmd"] for e in ev if e["kind"] == "command"]
     server = any(c.startswith(("ssh", "scp")) for c in cmds)
     aws = any(c.startswith("aws s3 cp") for c in cmds)

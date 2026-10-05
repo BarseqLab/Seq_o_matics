@@ -27,7 +27,7 @@ from front_end.logwindow import (
 from constants import (
     FLUIDICS_WAIT_BETWEEN_STEPS_SECONDS, SELECTOR_SETTLE_SECONDS,
     DEFAULT_PUMP_RATE_ML_PER_MIN, DEFAULT_HEAT_TEMP_VOLTAGE,
-    HEAT_DEFAULT_TEMP_VOLTAGE, SEQUENCE_FINISH_DELAY_SECONDS,
+    HEAT_DEFAULT_TEMP_VOLTAGE, SEQUENCE_FINISH_DELAY_SECONDS, HEAT_IDLE_VOLTAGE,
 )
 from system.fluidics.protocol_loader import load_protocol
 from system.fluidics.sequence_runner import SequenceState
@@ -240,6 +240,44 @@ class FluidicSystem():
     def disconnect_relay(self) -> None:
         """Disconnect relay device (stub -- no-op)."""
         self.relay.quit()
+
+    def release_devices(self) -> None:
+        """Stop and disconnect every fluidics device after Cancel.
+
+        Disconnecting the pump sends its stop command, so a dispense in progress
+        stops immediately. A heat step in progress is first allowed to exit (its
+        loops check the cancel flag) and the heater is left at idle voltage in
+        image mode before the DAQ tasks are closed. Devices that are not
+        connected are skipped, so this is safe to call at any point.
+        """
+        def attempt(name, fn):
+            try:
+                fn()
+                txt = get_time() + f"Cancel: {name} released\n"
+            except Exception as e:
+                txt = get_time() + f"Cancel: {name} was not released ({e})\n"
+            print(txt.strip())
+            self.write_log(txt)
+
+        if getattr(self, "pump", None) is not None:
+            attempt("pump stopped and", self.disconnect_pump)
+        if getattr(self, "selector", None) is not None:
+            attempt("selector", self.disconnect_selector)
+        if getattr(self, "relay", None) is not None:
+            attempt("relay", self.disconnect_relay)
+        heater = getattr(self, "Heatingdevice", None)
+        if heater is not None and getattr(heater, "ao_task", None) is not None:
+            heater.wait_until_idle(timeout_s=60)
+
+            def heater_off():
+                for write in ([lambda: heater.ao_task.write(HEAT_IDLE_VOLTAGE)] +
+                              [lambda t=t: t.write(heater.image_mode) for t in heater.do_task]):
+                    try:
+                        write()
+                    except Exception:
+                        pass
+                self.disconnect_heater()
+            attempt("heater", heater_off)
 
 
     

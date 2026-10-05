@@ -7,6 +7,7 @@ modules under front_end.panels and front_end.automation_controller.
 """
 
 import os.path
+from threading import Thread
 import tkinter as tk
 from tkinter import ttk, StringVar, scrolledtext, Button, END, DISABLED, NORMAL, Label, Entry, Checkbutton, IntVar, Spinbox, PhotoImage
 from datetime import datetime
@@ -725,10 +726,14 @@ class window_widgets:
         self.fluidics.sequenceStatus = -1
         self.fluidics.sequenceIndex = 0
         self.fluidics.cycle_done = 1
+        self.fluidics.cycle_done_event.set()
         self.fluidics.start_image = 0
         self.scope.cancel_process = 1
         txt=get_time()+"Canceled current process\n"
         add_highlight_mainwindow(txt)
         self.write_log(txt)
+        # Stop the pump and release every device so the next Start can connect again.
+        # Runs in the background because a heat step can take a few seconds to exit.
+        Thread(target=self.fluidics.release_devices, name="cancel-release-devices").start()
         self.all_autobtn_normal()
         self.cancel_sequence_btn['state'] = "disable"

@@ -48,6 +48,16 @@ SCENARIOS = {
         "process": ["Fluidics_sequence_geneseq01", "imagecycle00"],
         "server": 0, "aws": 0, "steps": "cancel_restart",
     },
+    "cancel_heat_restart": {
+        "description": "Start an automated run, press Cancel during the first heat step, then press Start again.",
+        "process": ["Fluidics_sequence_geneseq01", "imagecycle00"],
+        "server": 0, "aws": 0, "steps": "cancel_restart", "cancel_during": "heat",
+    },
+    "prime_cancel": {
+        "description": "Press Prime, press Cancel during the fill, then press Prime again.",
+        "process": ["imagecycle00"],
+        "server": 0, "aws": 0, "steps": "prime_cancel",
+    },
 }
 
 
@@ -168,14 +178,23 @@ def run_prime_wash(app, ctx):
     settle()
 
 
+def _n(kind, pred=lambda e: True):
+    return sum(1 for e in trace.events() if e["kind"] == kind and pred(e))
+
+
 def run_cancel_restart(app, ctx):
     common_setup(app, ctx)
     trace.record("driver", step="press Start, confirm pump speed")
     gui.call(app.start_btn_check)
     gui.call(app.start_btn_handler)
-    wait_until(lambda: sum(1 for e in trace.events() if e["kind"] == "pump_dispense") >= 2, 6 * 3600,
-               "second pump step started")
-    clock.sleep(30)
+    if SCENARIOS[ctx["scenario"]].get("cancel_during") == "heat":
+        n0 = _n("daq_write", lambda e: e.get("channel") == "Dev3/ao0" and e.get("value") == 5.6)
+        wait_until(lambda: _n("daq_write", lambda e: e.get("channel") == "Dev3/ao0" and e.get("value") == 5.6) > n0,
+                   6 * 3600, "heat step started")
+        clock.sleep(60)
+    else:
+        wait_until(lambda: _n("pump_dispense") >= 2, 6 * 3600, "second pump step started")
+        clock.sleep(30)
     trace.record("driver", step="press Cancel")
     gui.call(app.cancel_btn_handler)
     settle(virtual_quiet=600, virtual_max=4 * 3600)
@@ -184,6 +203,24 @@ def run_cancel_restart(app, ctx):
     gui.call(app.start_btn_check)
     gui.call(app.start_btn_handler)
     settle(virtual_quiet=600, virtual_max=2 * 3600)
+
+
+def run_prime_cancel(app, ctx):
+    common_setup(app, ctx)
+    trace.record("driver", step="press Prime, confirm pump speed")
+    gui.call(app.prime_btn_check)
+    gui.call(app.prime_btn_handler)
+    wait_until(lambda: _n("pump_dispense") >= 3, 6 * 3600, "third fill step started")
+    clock.sleep(10)
+    trace.record("driver", step="press Cancel")
+    gui.call(app.cancel_btn_handler)
+    settle(virtual_quiet=600, virtual_max=4 * 3600)
+    trace.set_extra("after_cancel", {"open_ports": _ports(), "reserved_daq": _daq()})
+    trace.record("driver", step="press Prime again, confirm pump speed")
+    gui.call(app.prime_btn_check)
+    gui.call(app.prime_btn_handler)
+    wait_until(lambda: "Wash/Prime line Done!" in log_text(ctx["exp_dir"]), 6 * 3600, "Prime done")
+    settle()
 
 
 def _ports():
@@ -196,4 +233,5 @@ def _daq():
     return fake_nidaqmx.reserved_channels()
 
 
-STEPS = {"auto": run_auto, "prime_wash": run_prime_wash, "cancel_restart": run_cancel_restart}
+STEPS = {"auto": run_auto, "prime_wash": run_prime_wash, "cancel_restart": run_cancel_restart,
+         "prime_cancel": run_prime_cancel}
