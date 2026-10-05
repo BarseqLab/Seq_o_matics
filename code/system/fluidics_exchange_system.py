@@ -295,12 +295,14 @@ class FluidicSystem():
         return 
     
     def select_bypass(self, SELECT_BYPASS_STATE: bool) -> None:
-        """Set all relay chambers to bypass state (stub -- relay not implemented)."""
-        pass
+        """Set all four relay channels to the bypass state (the relay driver itself is a stub)."""
+        for chamber in (self.chamber1, self.chamber2, self.chamber3, self.chamber4):
+            self.relay.change_relay_state(chamber, SELECT_BYPASS_STATE)
 
     def select_chamber(self, SELECT_CHAMBER_STATE: bool) -> None:
-        """Set all relay chambers to chamber state (stub -- relay not implemented)."""
-        pass
+        """Set all four relay channels to the chamber state (the relay driver itself is a stub)."""
+        for chamber in (self.chamber1, self.chamber2, self.chamber3, self.chamber4):
+            self.relay.change_relay_state(chamber, SELECT_CHAMBER_STATE)
     
     def stopPumping(self) -> None:
         self.pump.stopPump()

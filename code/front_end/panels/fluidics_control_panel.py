@@ -92,6 +92,7 @@ class FluidicsControlPanel:
             self.app.fluidics.connect_relay()
             self.app.fluidics.connect_selector()
             self.app.fluidics.connect_heater()
+            self.app.fluidics.select_chamber(not FluidicsConstants.SELECT_CHAMBER_STATE)
             self.app.fluidics.loadSequence(self.app.fluidics.Fill_ALL_SEQUENCE)
             t1 = Thread(target=self.app.fluidics.startSequence)
             t1.start()
@@ -114,6 +115,7 @@ class FluidicsControlPanel:
         txt = _get_time() + "Now starting in chamber line\n"
         add_fluidics_status(txt)
         self.app.write_log(txt)
+        self.app.fluidics.select_chamber(FluidicsConstants.SELECT_CHAMBER_STATE)
         self.app.fluidics.setSource("PBST")
         self.app.fluidics.pumpVol(4, self.app.fluidics.pumprate)
         time.sleep((float(4) / self.app.fluidics.pumprate) * 60 + 5)
@@ -170,6 +172,10 @@ class FluidicsControlPanel:
             self.app.fluidics.connect_pump()
             print(reagent)
             self.app.fluidics.setSource(reagent)
+            if self.app.inchamber_path.get() == 1:
+                self.app.fluidics.select_chamber(FluidicsConstants.SELECT_CHAMBER_STATE)
+            else:
+                self.app.fluidics.select_bypass(FluidicsConstants.SELECT_BYPASS_STATE)
             txt = _get_time() + "fill with " + reagent + "\n"
             add_highlight_mainwindow(txt)
             self.app.write_log(txt)
@@ -246,6 +252,7 @@ class FluidicsControlPanel:
             self.app.fluidics.connect_relay()
             self.app.fluidics.connect_selector()
             self.app.fluidics.connect_heater()
+            self.app.fluidics.select_chamber(not FluidicsConstants.SELECT_CHAMBER_STATE)
             self.app.fluidics.loadSequence(self.app.fluidics.FLUSH_ALL_SEQUENCE)
             t1 = Thread(target=self.app.fluidics.startSequence)
             t1.start()

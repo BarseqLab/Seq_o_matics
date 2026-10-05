@@ -16,6 +16,7 @@ from front_end.logwindow import (
     add_highlight_mainwindow, update_error,
 )
 from system.image_acquisition_and_analysis_system import scope, get_pos_data, single_createtiles
+from system.fluidics_exchange_system import FluidicsConstants
 
 
 def _get_time():
@@ -80,6 +81,7 @@ class AutomationController:
         txt = _get_time() + "start " + self.app.process_cycle + "\n"
         self.app.write_log(txt)
         add_highlight_mainwindow(txt)
+        self.app.fluidics.select_chamber(FluidicsConstants.SELECT_CHAMBER_STATE)
         if "Fluidics_sequence" in self.app.process_cycle:
             self.app.fluidics.pump.driver.setFlowRate(1.5)
             self.app.scope = scope(

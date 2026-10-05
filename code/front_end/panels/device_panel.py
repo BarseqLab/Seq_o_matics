@@ -54,7 +54,6 @@ class DevicePanel:
         """Attempt to connect and configure the selected device group, updating device_status on success."""
         device_group = self.app.device_dropdown.get()
         self.app.pos_path = self.app.work_path_field_auto.get()
-        self.app.device_status["relay_group"] = 1
         if self.app.pos_path == "":
             self.app.pos_path = "C://"
             self.app.fluidics = FluidicSystem(
@@ -76,7 +75,13 @@ class DevicePanel:
                 self.app.warning_dev.insert('end', "Please, reconnect Pump groups!\n", 'warning')
                 return
         if "relay" in device_group:
-            pass
+            try:
+                self.app.fluidics.config_relay()
+                self.app.device_status["relay_group"] = 1
+                self.app.warning_dev.insert('end', "Solenoid groups works well!\n", 'normal')
+            except Exception:
+                self.app.warning_dev.insert('end', "Please, reconnect relay groups!\n", 'warning')
+                return
         if "heater" in device_group:
             self.app.fluidics.config_heater()
             self.app.device_status["heater_group"] = 1
