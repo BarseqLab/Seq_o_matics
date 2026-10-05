@@ -213,7 +213,7 @@ class ImagingControlPanel:
         """Poll for newly completed max-projection tiles and display them in the live-view canvas."""
         name = self.app.scope.maxprojection_name
         cycle = self.app.scope.cycle
-        while name != 'end' and self.app.cancel != 1 and 'imagecycle' in self.app.process_cycle:
+        while name != 'end' and self.app.cancel != 1:
             print(f'liveview {cycle} tile {name}')
             if name != '':
                 self.plot_maxprojection_liveview(name, cycle)
