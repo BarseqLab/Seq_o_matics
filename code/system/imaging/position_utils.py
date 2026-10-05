@@ -26,8 +26,8 @@ class scope_constant():
     max-projection acquisition modes.
     """
 
-    piezo_focus_start_pos = -40
-    piezo_focus_end_pos = 40
+    piezo_focus_start_pos = -30
+    piezo_focus_end_pos = 30
     piezo_step = 1.5
 
     # scope_start_pos = -15

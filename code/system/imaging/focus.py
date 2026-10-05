@@ -23,6 +23,11 @@ from system.imaging.position_utils import (
     scope_constant, get_time, clean_space, copy_dic, save_offset_and_json,
 )
 
+# Piezo parking position before each focus stack (both the first try and the retry).
+# The stack planes themselves are absolute (position-file piezo +/- the focus range);
+# this only sets where the piezo waits. Reference used 185; 200 approved for Elm.
+PIEZO_FOCUS_PREPOSITION_UM = 200
+
 
 class FocusManager:
     """Manages focus-finding operations including z-stack acquisition and sharpness analysis.
@@ -199,17 +204,23 @@ class FocusManager:
             pos: Position name string (e.g., 'Pos0').
         """
         p = self._parent
-        img = tifffile.imread(os.path.join(p.pos_path, "focus" + p.cycle, pos+"_1", pos + "_NDTiffStack.tif"))
-        if p.focus_channel[0]==p.focus_channel[1]:
-            focusimg =img
-            display_img = img
+        focus_dir = os.path.join(p.pos_path, "focus" + p.cycle)
+        img = tifffile.imread(os.path.join(focus_dir, pos+"_1", pos + "_NDTiffStack.tif"))
+        # The stack is acquired channel by channel: pass 1 = align channel, pass 2 = focus
+        # target channel (create_piezo_event, focus_channel = [align, target]). The best
+        # plane is searched only in the focusing pass; the saved image comes from the align
+        # pass at the same plane.
+        n_planes = len(p.piezo_event_pos)
+        frames = np.asarray(img).reshape(-1, p.imwidth, p.imwidth)
+        if len(frames) == 2 * n_planes:
+            display_img, focusimg = frames[:n_planes], frames[n_planes:]
         else:
-            img_reshaped_array = img.reshape(80, p.imwidth, p.imwidth)
-            display_img=[img_reshaped_array[i] for i in range(len(p.channel)) if p.channel[i] == p.align_channel]
-            focusimg=[img_reshaped_array[i] for i in range(len(p.channel)) if p.channel[i] == p.target_channel]
+            # Same channel used for both passes: the dataset keeps one image per
+            # (channel, z), which is the later (focusing) pass.
+            display_img = focusimg = frames
         sharpness = [self.get_sharpness(i[800:2400, 800:2400], scope_constant.sharpen1) for i in focusimg]
         max_index = np.argmax(sharpness)
-        z_name = pos + ".tif"
+        z_name = os.path.join(focus_dir, pos + ".tif")
         im = display_img[max_index]
         skimage.io.imsave(z_name, im, photometric='minisblack')
         dict = {pos: p.piezo_event_pos[max_index]}
@@ -268,6 +279,7 @@ class FocusManager:
             pos = row['position']
             if p.piezo==1:
                 try:
+                    p.core.stop_stage_sequence('DA Z Stage')
                     x = row['x']
                     y = row['y']
                     p.core.set_xy_position(x, y)
@@ -281,7 +293,7 @@ class FocusManager:
                     print("ZDrive ready")
                     txt = get_time() + "ZDrive ready" + "\n"
                     p.write_log(txt)
-                    p.core.set_position("DA Z Stage", p.piezo_middle_pos)
+                    p.core.set_position("DA Z Stage", PIEZO_FOCUS_PREPOSITION_UM)
                     p.core.wait_for_device("DA Z Stage")
                     print("DA Z Stage")
                     txt = get_time() + "DA Z Stage ready" + "\n"
@@ -307,8 +319,7 @@ class FocusManager:
                     print("ZDrive ready")
                     txt = get_time() + "ZDrive ready" + "\n"
                     p.write_log(txt)
-                    piezo_z = 185
-                    p.core.set_position("DA Z Stage", piezo_z)
+                    p.core.set_position("DA Z Stage", PIEZO_FOCUS_PREPOSITION_UM)
                     p.core.wait_for_device("DA Z Stage")
                     print("DA Z Stage")
                     txt = get_time() + "DA Z Stage" + "\n"
@@ -324,7 +335,7 @@ class FocusManager:
                 pass
             p.i=p.i+100/len(poslist)
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             futures = [executor.submit(self.find_focus_plane, pos) for pos in poslist["position"].tolist()]
         try:
             done, not_done = wait(futures)
