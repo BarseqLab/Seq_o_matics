@@ -38,17 +38,18 @@ Context from the user: **Elm currently runs on REF.** No other version has been 
 |---|---|
 | All group-B rows (P01-P21) | **fix**, with the changes below |
 | P04, P05, P21 (Elm config and data) | **Done** in commit `3393477`. Every file under `config_file/`, `device/pump_speed_calibration.txt`, `device/tissue_scanner/**` and `reagent_sequence_file/**` is now byte-identical to REF, including folder names; `slide.pos~` was removed. Elm-specific values that are hard-coded in Python come in through the code fixes: default server (P12), pump 1.5 (P13), focus ±30 (P06), piezo 185 (P16). |
-| P03 (focus image path) | **fix**, but downgraded to **Medium**. With "skip alignment", `do_alignment` takes the mock path and `check_imagecycle00` only checks that `dicfocuscycle00/` exists, so real runs don't hang. The effect is that DIC best-focus images are not kept in `dicfocus<cycle>/`; they are overwritten in the launch folder instead. |
+| P03 (focus image path) | **fix**, required. With "skip alignment", real runs don't hang, but the DIC best-focus images are not kept in `dicfocus<cycle>/`; they are overwritten in the launch folder. **Confirmed new in the refactor:**<br>- REF does `os.chdir(pos_path/focus<cycle>)` before saving (`system/image_acquisition_and_analysis_system.py:435`).<br>- The pre-refactor upstream commit `f30ab9a` (2025-09-30) does the same (`:342`).<br>- The refactor commit `dc55b5a` (2026-04-01) removed the chdir but kept the relative save (`system/imaging/focus.py:212-214`).<br>- Real REF data has the images where they belong, e.g. `E:\20260928_Dennis_STARmap_Test3\dicfocusgeneseq03\Pos0.tif` (48 per cycle). |
+| Hard-coded per-microscope values | Listed in `docs/hardcoded_values.md`, to be handled in a separate session. The parity regressions among them (P06, P12, P13, P16) are still restored to the Elm values on this branch. |
 | P15 (tissue scanner) | **fix**: stitching the same as REF (no flip, no CLAHE). The scanner is not used on Elm. Keep `imwrite` (A2), because REF's `imsave` can't run in Elm's env ("keep what works now"). |
 | All group-A rows | **keep** |
 | GA08 / Q1 (Cancel during Prime/Wash) | **Deviation from REF:** Cancel must **stop**. Skip the 4 mL PBST flush, disconnect the devices and re-enable the buttons. |
 | Q2 (Cancel hang in tiling/max-projection waits) | **fix** (deviation from REF) |
-| Q3 (doubled focus sweep) | explained to user; pending |
-| Q4 (logging) | **No duplicate lines in `log.txt`.** Panel messages: pending the user's choice from the list. |
+| Q3 (doubled focus sweep) | **fix (deviation from REF): image the focus channel once** when the align channel equals the target channel.<br>- In `focus_image`, `focus_channel = [align]` if `align == target`, else `[align, target]`.<br>- In `find_focus_plane`, test `len(focus_channel) == 1` instead of `[0] == [1]`.<br>- Effect: focus stacks become 40 frames instead of 80, focus acquisition is about 2× faster, and the IndexError risk goes away.<br>- Evidence (12 real stacks, `E:\20260928_Dennis_STARmap_Test3`): both passes peak at the same plane, and the second pass is 1-4% less sharp. |
+| Q4 (logging) | **Keep the extra panel messages** (notification and red warning panels). **No duplicate lines in `log.txt`:** `log.txt` keeps the REF lines, once each. Fix the `%.2f` logging-format traceback on manual Fill. |
 | Q5 (AWS missing-folder guard) | **fix** |
-| Q6 (start-flag race) | explained to user; pending |
+| Q6 (start-flag race) | **leave** (not an issue in practice) |
 | Q7 (tissue scanner) | same as P15 |
-| GA10 / Q8 (pump-speed field) | Don't pre-fill differently. **Prompt the operator if no valid value was entered.** The proposed fix is pending confirmation. |
+| GA10 / Q8 (pump-speed field) | **fix (deviation from REF):**<br>- Save the value stripped, one line.<br>- Pre-fill the field with the last non-blank value every launch.<br>- Before Prime/Fill/Wash/Start, if the field is empty or not a positive number, prompt the operator and don't start.<br>- The existing "Please confirm the current pump speed" pop-ups stay. |
 | Group C, group D | defaults (C keep / small restores; D leave), except D items now covered by Q1/Q2/Q5/Q8 |
 
 ---
