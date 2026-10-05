@@ -347,7 +347,7 @@ class window_widgets:
         self.account_field_manual.config(state=DISABLED)
 
         self.server = tk.StringVar()
-        self.server.set("jackw-ux1")
+        self.server.set("10.128.30.152")
         self.server_field_auto = Entry(self.frame2, relief="groove", width=20, textvariable=self.server)
         self.server_field_auto.config(state=DISABLED)
         self.server_field_manual = Entry(self.frame2_2, relief="groove", width=20, textvariable=self.server)
@@ -396,7 +396,7 @@ class window_widgets:
 
         self.change_server_value = IntVar()
         self.change_server_value.set(0)
-        self.change_server_auto_cb = Checkbutton(self.frame2, text="change storage server",
+        self.change_server_auto_cb = Checkbutton(self.frame2, text="Send to storage server",
                                               command=self.change_server_auto,
                                               fg=widge_attr.normal_color, variable=self.change_server_value, onvalue=1,
                                               offvalue=0)
@@ -478,7 +478,7 @@ class window_widgets:
         self._status.upload_aws()
 
     def upload_aws_handler(self):
-        """Placeholder for future AWS upload functionality."""
+        """Upload this experiment's max-projection folders to AWS S3."""
         self._status.upload_aws_handler()
 
     # -- WorkspacePanel --

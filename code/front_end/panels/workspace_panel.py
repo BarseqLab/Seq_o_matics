@@ -120,6 +120,9 @@ class WorkspacePanel:
             slide_hearter_dictionary=self.app.heater_dict,
         )
         self.app.check_sequence(self.app.chamber_number)
+        # End-of-run uploads follow these two boxes, read once when the experiment is created.
+        self.app.AWS = 1 if self.app.upload_aws_value.get() == 1 else 0
+        self.app.Local_upload = 1 if self.app.change_server_value.get() == 1 else 0
 
     def create_exp_manual(self):
         """Validate manual tab inputs, initialize the microscope scope, and prepare for manual imaging of a single cycle."""

@@ -4,6 +4,10 @@ Handles canvas clearing, note saving, and AWS upload UI toggling.
 """
 
 import os
+import subprocess
+import tarfile
+
+import zstandard
 
 from front_end.logwindow import add_highlight_mainwindow, widge_attr
 
@@ -79,5 +83,54 @@ class StatusPanel:
             self.app.aws_pwd_field["state"] = "disable"
 
     def upload_aws_handler(self):
-        """Placeholder for future AWS upload functionality."""
-        pass
+        """Upload every per-cycle max-projection folder of this experiment to S3.
+
+        Each <maxprojection drive>/<experiment>_maxprojection/<cycle> folder is packed
+        into <cycle>.tar.zst (zstd level 3, streaming) and copied with
+        `aws s3 cp ... --storage-class INTELLIGENT_TIERING --checksum-algorithm SHA256`
+        (up to 3 attempts, using the AWS CLI's own credentials). The local archive is
+        deleted only after a successful upload. Runs in the calling thread, as in the
+        reference.
+        """
+        folder = self.app.pos_path[3:] + "_maxprojection"
+        base_dir = os.path.join(self.app.scope.maxprojection_drive, folder)
+        bucket = "barseq-acquisition"
+        max_retries = 3
+        if not os.path.isdir(base_dir):
+            txt = _get_time() + f"AWS upload skipped: {base_dir} does not exist\n"
+            print(txt)
+            add_highlight_mainwindow(txt)
+            return
+        for name in os.listdir(base_dir):
+            sub_path = os.path.join(base_dir, name)
+            if not os.path.isdir(sub_path):
+                continue
+            archive_path = os.path.join(base_dir, f"{name}.tar.zst")
+            s3_uri = f"s3://{bucket}/{folder}/{name}.tar.zst"
+            # 1. Tar + zstd-compress the folder (streaming, no intermediate uncompressed tar)
+            print(f"Creating {archive_path}")
+            cctx = zstandard.ZstdCompressor(level=3, threads=-1)
+            with open(archive_path, "wb") as f_out:
+                with cctx.stream_writer(f_out) as compressor:
+                    with tarfile.open(fileobj=compressor, mode="w|") as tar:
+                        tar.add(sub_path, arcname=name)
+            # 2. Upload, retrying only on CLI failure
+            success = False
+            for attempt in range(1, max_retries + 1):
+                print(f"Attempt {attempt}/{max_retries}: uploading to {s3_uri}")
+                upload = subprocess.run([
+                    "aws", "s3", "cp", archive_path, s3_uri,
+                    "--storage-class", "INTELLIGENT_TIERING",
+                    "--checksum-algorithm", "SHA256",
+                ])
+                if upload.returncode == 0:
+                    success = True
+                    break
+                print(f"  Upload failed (exit {upload.returncode}), retrying...")
+            # 3. Delete local archive only after successful upload
+            if success:
+                os.remove(archive_path)
+                print(f"Deleted {archive_path}. Moving to next folder.\n")
+            else:
+                print(f"FAILED to upload {archive_path} after {max_retries} attempts. Keeping local file.\n")
+        print("Finished all folders\n")

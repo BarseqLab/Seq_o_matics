@@ -52,22 +52,23 @@ class AutomationController:
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
             )
-            if os.path.exists(os.path.join(
-                self.app.scope.maxprojection_drive,
-                self.app.pos_path[3:] + "_maxprojection",
-            )):
-                txt = _get_time() + "Upload images to server!\n"
-                self.app.write_log(txt)
-                add_highlight_mainwindow(txt)
-                self.app.scope.send_to_server(self.app.pos_path)
-                txt = _get_time() + "Upload images is finished!\n"
-                self.app.write_log(txt)
-                add_highlight_mainwindow(txt)
+            # Upload only what the operator ticked when the experiment was created.
+            if getattr(self.app, "Local_upload", 0) == 1:
+                if os.path.exists(os.path.join(
+                    self.app.scope.maxprojection_drive,
+                    self.app.pos_path[3:] + "_maxprojection",
+                )):
+                    txt = _get_time() + "Upload images to server!\n"
+                    self.app.write_log(txt)
+                    add_highlight_mainwindow(txt)
+                    self.app.scope.send_to_server(self.app.pos_path)
+                    txt = _get_time() + "Upload images is finished!\n"
+                    self.app.write_log(txt)
+                    add_highlight_mainwindow(txt)
+            if getattr(self.app, "AWS", 0) == 1:
+                self.app.upload_aws_handler()
 
-            txt = _get_time() + "Upload files to server!\n"
-            self.app.write_log(txt)
-            add_highlight_mainwindow(txt)
-            self.app.scope.send_protocol(self.app.pos_path)
+            # The protocol-file upload (scope.send_protocol) is disabled, as in the reference.
             txt = _get_time() + "Upload files is finished!\n"
             self.app.write_log(txt)
             add_highlight_mainwindow(txt)
@@ -89,7 +90,7 @@ class AutomationController:
             self.app.scope.move_to_fluidics()
             try:
                 self.app.protocol = self.app.fluidics.find_protocol(self.app.process_cycle)
-            except (KeyError, FileNotFoundError, ValueError) as e:
+            except Exception:
                 self.app.fluidics.disconnect_pump()
                 self.app.fluidics.disconnect_selector()
                 self.app.fluidics.disconnect_relay()
