@@ -33,7 +33,7 @@ class IsmatecPumpDevice(PumpDevice):
         IPD_COM_CONFIG = self.config['port']
         self.driver = IsmatecDriver(serPort=IPD_COM_CONFIG, tubingDiameter=self.config['tubingDiameter'],
                                     expectedPumpID=self.config['pumpID'])
-        self.driver.setFlowRate(1.2)
+        self.driver.setFlowRate(1.5)
         logger.info("Pump initialized on %s", IPD_COM_CONFIG)
         print("initialized ismatecdriver!")
 
