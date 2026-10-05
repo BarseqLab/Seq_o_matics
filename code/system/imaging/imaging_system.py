@@ -18,9 +18,10 @@ from system.imaging.alignment import AlignmentManager
 from system.imaging.focus import FocusManager
 from system.imaging.max_projection import MaxProjectionManager
 from system.imaging.position_utils import (
-    scope_constant, get_pos_data, get_time, get_file_name as _get_file_name,
+    get_pos_data, get_time, get_file_name as _get_file_name,
 )
 from system.imaging.tiling import TilingManager
+from system.imaging.zstack_settings import ZStackSettings
 
 
 class ImagingSystem:
@@ -85,16 +86,9 @@ class ImagingSystem:
         self.align_channel = self.scope_cfg[0]["align_channel"]
         self.thread_limiter = threading.Semaphore(10)
 
-        if self.piezo == 1:
-            self.stack_num_focus = round(
-                abs(scope_constant.piezo_focus_end_pos - scope_constant.piezo_focus_start_pos) / scope_constant.piezo_step)
-            self.stack_num_maxpro = round(
-                abs(scope_constant.piezo_maxpro_start_pos - scope_constant.piezo_maxpro_end_pos) / scope_constant.piezo_step)
-        else:
-            self.stack_num_focus = round(
-                abs(scope_constant.scope_focus_end_pos - scope_constant.scope_focus_start_pos) / scope_constant.scope_step)
-            self.stack_num_maxpro = round(
-                abs(scope_constant.scope_start_pos - scope_constant.scope_end_pos) / scope_constant.scope_step)
+        self.zstack = ZStackSettings.from_config(self.scope_cfg[0])
+        self.stack_num_focus = self.zstack.n_focus_planes
+        self.stack_num_maxpro = self.zstack.n_planes
 
         # Compose manager objects
         self._focus_mgr = FocusManager(self)
@@ -203,13 +197,13 @@ class ImagingSystem:
         """Compute an image sharpness metric using gradient magnitude after median blur and sharpening."""
         return self._focus_mgr.get_sharpness(f, sharpen)
 
-    def calculate_z_stack(self, start_pos, end_pos):
+    def calculate_z_stack(self, planes_for):
         """Calculate piezo z-stack positions centered on the piezo middle position."""
-        return self._focus_mgr.calculate_z_stack(start_pos, end_pos)
+        return self._focus_mgr.calculate_z_stack(planes_for)
 
-    def create_piezo_event(self, channel, start_pos, end_pos):
+    def create_piezo_event(self, channel, planes_for, pass_axis=False):
         """Build a list of pycromanager acquisition events for a piezo-driven multi-channel z-stack."""
-        return self._focus_mgr.create_piezo_event(channel, start_pos, end_pos)
+        return self._focus_mgr.create_piezo_event(channel, planes_for, pass_axis)
 
     def calculate_z_stack_without_piezo(self, middle, start_pos, end_pos):
         """Calculate z-stack positions using the main ZDrive stage (no piezo)."""

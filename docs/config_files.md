@@ -187,6 +187,27 @@ Defines microscope parameters for the imaging system.
 | `maxproject_drive` | string | Network drive path for max-projection output (e.g., `"M:\\"`) |
 | `align_channel` | string | Channel used for inter-cycle image alignment |
 
+### Z-stack thickness keys
+
+All optional. A missing key takes the default, which reproduces the behaviour before these keys existed (30 µm stack, 60 µm focus sweep, one projection per tile). The values in effect are shown in the start confirmation window and written to `log.txt` and `zstack_settings_used.json` in the work folder. They are read again each time Start is pressed.
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `z_stack_thickness_um` | `30` | T, thickness of the imaging stack. Must be at most `focus_range_cap_um`. |
+| `z_step_um` | `1.5` | Step between imaging planes. N = round(T / step) planes. |
+| `focus_step_um` | `1.5` | Focus step for thin sections |
+| `focus_step_thick_um` | `3` | Focus step when T ≥ `thick_section_um` |
+| `thick_section_um` | `50` | Thickness at which a section counts as thick |
+| `focus_range_cap_um` | `300` | Upper limit on the focus sweep R = min(max(1.2·T, T + 30), cap) |
+| `focus_method` | `"peak"` | `"peak"` (sharpest plane), `"band_center"` (middle of the sharp band), or `"auto"` (`band_center` when T ≥ `thick_section_um`) |
+| `focus_extreme_change_frac` | `0.3333` | A focus change of at least this fraction of R is reported as extreme (20 µm at the defaults) |
+| `band_center_frac` | `0.5` | `band_center` threshold, as a fraction of the way from baseline to peak |
+| `maxproj_split_above_um` | `30` | Split the stack into sub-stack projections only when T is greater than this |
+| `maxproj_substack_um` | `30` | Sub-stack size. A leftover of half a group or less joins the last group. |
+| `storage_margin` | `1.10` | Safety factor on the disk-space estimate |
+
+With more than one sub-stack, each tile gives `MAX_<pos>_z00.tif`, `_z01`, … (`z00` is the lowest piezo position), and `<cycle>_substacks.csv` in the same folder lists the planes and piezo range of each group. With one group the file keeps its usual name, `MAX_<pos>.tif`.
+
 ### Channel Names
 
 Channels correspond to filter cube / illumination combinations configured in Micro-Manager:

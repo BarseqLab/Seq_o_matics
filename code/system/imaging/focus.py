@@ -64,43 +64,35 @@ class FocusManager:
         gnorm = np.sqrt(gx ** 2 + gy ** 2)
         return np.average(gnorm)
 
-    def calculate_z_stack(self, start_pos, end_pos):
-        """Calculate piezo z-stack positions centered on the piezo middle position from the cycle CSV.
+    def calculate_z_stack(self, planes_for):
+        """Piezo positions centred on the piezo middle position from the cycle CSV.
 
         Args:
-            start_pos: Relative start offset from the piezo middle position.
-            end_pos: Relative end offset from the piezo middle position.
-
-        Returns:
-            NumPy array of absolute piezo positions for the z-stack sweep.
+            planes_for: Function mapping the middle position to absolute plane
+                positions, e.g. ``p.zstack.focus_planes``.
         """
         p = self._parent
         df = pd.read_csv(os.path.join(p.pos_path, p.cycle + ".csv"))
         p.piezo_middle_pos = df['piezo'][0]
-        piezo_event_pos = np.arange(p.piezo_middle_pos + start_pos, p.piezo_middle_pos + end_pos,
-                                    scope_constant.piezo_step)
-        return piezo_event_pos
+        return planes_for(p.piezo_middle_pos)
 
-    def create_piezo_event(self, channel, start_pos, end_pos):
-        """Build a list of pycromanager acquisition events for a piezo-driven multi-channel z-stack.
+    def create_piezo_event(self, channel, planes_for, pass_axis=False):
+        """Build pycromanager events for a piezo-driven multi-channel z-stack.
 
-        Each event specifies a channel, z-slice index, exposure time, and piezo z position.
-
-        Args:
-            channel: List of channel names (e.g., ['G', 'T', 'A', 'C']).
-            start_pos: Relative start offset for z-stack.
-            end_pos: Relative end offset for z-stack.
-
-        Returns:
-            List of event dictionaries compatible with pycromanager Acquisition.acquire().
+        Channels are the outer loop and planes the inner loop. With pass_axis,
+        each channel gets a ``focus_pass`` axis (0, 1, ...), so two passes on the
+        same channel are stored separately instead of the second replacing the first.
         """
         p = self._parent
-        p.piezo_event_pos = self.calculate_z_stack(start_pos, end_pos)
+        p.piezo_event_pos = self.calculate_z_stack(planes_for)
         piezo_event = []
         p.channel=[]
-        for c in channel:
+        for k, c in enumerate(channel):
             for z in range(0, len(p.piezo_event_pos)):
-                piezo_event.append({'axes': {'channel': c, 'z': z},
+                axes = {'channel': c, 'z': z}
+                if pass_axis:
+                    axes['focus_pass'] = k
+                piezo_event.append({'axes': axes,
                                     'config_group': ['Channel', c],
                                     'exposure': p.scope_exposure_time_dict.get(c),
                                     'z': p.piezo_event_pos[z]})
@@ -256,8 +248,7 @@ class FocusManager:
             p.target_channel = p.gene_target_channel
         print(p.focus_channel)
         p.z_new_ls = {}
-        p.piezo_event = self.create_piezo_event(p.focus_channel, scope_constant.piezo_focus_start_pos,
-                                                   scope_constant.piezo_focus_end_pos)
+        p.piezo_event = self.create_piezo_event(p.focus_channel, p.zstack.focus_planes)
         threads = []
         focus_dir = os.path.join(p.pos_path, "focus" + p.cycle)
         clean_space(focus_dir)

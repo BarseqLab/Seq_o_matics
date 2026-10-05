@@ -163,8 +163,7 @@ class MaxProjectionManager:
         p.i = 100 / len(p.maxproject_list)
         p.write_log('Start maxprojection')
         p.piezo_middle_pos = p.piezo #This is used when we have piezo
-        p.piezo_event = p._focus_mgr.create_piezo_event(p.channel_list, scope_constant.piezo_maxpro_start_pos,
-                                                   scope_constant.piezo_maxpro_end_pos)
+        p.piezo_event = p._focus_mgr.create_piezo_event(p.channel_list, p.zstack.imaging_planes)
         p.core.set_shutter_open(False)
         for index, row in p.maxproject_list.iterrows():
             update_process_bar(p.i)

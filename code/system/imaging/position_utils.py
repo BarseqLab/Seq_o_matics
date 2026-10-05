@@ -20,24 +20,10 @@ from pytz import timezone
 class scope_constant():
     """Hardware constants for microscope imaging parameters.
 
-    Stores default piezo focus range, step sizes, sharpening kernel,
-    and other imaging constants used throughout the acquisition pipeline.
-    These values define the z-stack sweep ranges for both focusing and
-    max-projection acquisition modes.
+    Z-stack and focus sweep ranges are not here: they come from scope.json
+    through system.imaging.zstack_settings.
     """
 
-    piezo_focus_start_pos = -30
-    piezo_focus_end_pos = 30
-    piezo_step = 1.5
-
-    # scope_start_pos = -15
-    # scope_end_pos = 15
-    # scope_focus_end_pos = 30
-    # scope_focus_start_pos = -30
-    # scope_step = 1.5
-
-    piezo_maxpro_start_pos = -15
-    piezo_maxpro_end_pos = 15
     sharpen1 = np.array(([0, 1, 0],
                          [-1, 5, -1],
                          [0, -1, 0]), dtype="int")
