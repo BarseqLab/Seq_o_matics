@@ -11,7 +11,6 @@ import time
 
 import numpy as np
 import pandas as pd
-import skimage
 import tifffile
 from pycromanager import Acquisition, Core
 
@@ -19,8 +18,9 @@ from front_end.logwindow import (
     update_error, add_highlight_from_scope,
     update_process_bar, update_process_label, draw_liveview,
 )
+from system.imaging.ndtiff_stack import NDTiffStack
 from system.imaging.position_utils import (
-    scope_constant, get_time, color_array, hattop_convert, denoise,
+    get_time, color_array, hattop_convert, denoise, image_channels_for_cycle,
 )
 
 
@@ -106,22 +106,8 @@ class MaxProjectionManager:
         Also calculates the total z-stack size for max-projection.
         """
         p = self._parent
-        if ('geneseq' in p.cycle or 'bcseq' in p.cycle or 'user_defined' in p.cycle) and '01' in p.cycle:
-            p.channel_list = ["G", "T", "A", "C", "Hyb-DAPI"]
-            channel_number = len(p.channel_list)
-            p.maxprojection_stack = p.stack_num_maxpro * channel_number
-
-
-        elif ('geneseq' in p.cycle or 'bcseq' in p.cycle or 'user_defined' in p.cycle) and ~(
-                '01' in p.cycle):
-            p.channel_list = ["G", "T", "A", "C"]
-            channel_number = len(p.channel_list)
-            p.maxprojection_stack = p.stack_num_maxpro * channel_number
-
-        else:
-            p.channel_list = ["Hyb-GFP", "Hyb-YFP", "Hyb-TxRed","Hyb-Cy5", "Hyb-DAPI", "DIC"] #Original
-            channel_number = len(p.channel_list)
-            p.maxprojection_stack = p.stack_num_maxpro * channel_number
+        p.channel_list = image_channels_for_cycle(p.cycle)
+        p.maxprojection_stack = p.stack_num_maxpro * len(p.channel_list)
         p.timer=5*len(p.channel_list)
         return
 
@@ -164,6 +150,8 @@ class MaxProjectionManager:
         p.write_log('Start maxprojection')
         p.piezo_middle_pos = p.piezo #This is used when we have piezo
         p.piezo_event = p._focus_mgr.create_piezo_event(p.channel_list, p.zstack.imaging_planes)
+        if p.zstack.split_enabled:
+            self.write_substack_table()
         p.core.set_shutter_open(False)
         for index, row in p.maxproject_list.iterrows():
             update_process_bar(p.i)
@@ -261,11 +249,13 @@ class MaxProjectionManager:
                     txt = get_time() + "Piezo reset!"+ "\n"
                     p.write_log(txt)
                     raise ValueError("The tile can't be imaged!")
+            p.thread_limiter.acquire()  # released by process_scope_image
             try:
                 t = threading.Thread(target=self.process_scope_image, args=(row['switched_Posinfo'],))
                 t.start()
                 threads.append(t)
             except Exception as e:
+                p.thread_limiter.release()
                 update_error(f"Missing maxprojection: {e}")
             p.i = p.i + 100 / len(p.maxproject_list)
         for t in threads:
@@ -290,7 +280,8 @@ class MaxProjectionManager:
         p = self._parent
         try:
             self.maxprojection(pos)
-            p.maxprojection_name = 'MAX_' + pos+ '.tif'
+            names = self.output_names(pos)
+            p.maxprojection_name = names[len(names) // 2]  # live view shows the middle group
             txt = get_time() + "Maxprojection finish " + pos + " in "+p.cycle +"\n"
             print(txt)
             p.write_log(txt)
@@ -298,27 +289,54 @@ class MaxProjectionManager:
         finally:
             p.thread_limiter.release()
 
-    def maxprojection(self, pos):
-        """Compute max-intensity projection across z-slices for each channel and save as a multi-channel TIFF.
+    def output_names(self, pos):
+        """Projection file names of a tile: MAX_<pos>.tif, or MAX_<pos>_z00.tif ... with several groups."""
+        groups = self._parent.zstack.substack_groups()
+        if len(groups) == 1:
+            return ['MAX_' + pos + '.tif']
+        return ['MAX_%s_z%02d.tif' % (pos, g.index) for g in groups]
 
-        For non-DIC channels, takes the maximum across all z-slices. For the DIC channel,
-        selects the middle slice (index 9). Saves the result to the max-projection drive.
+    def _cycle_output_dir(self):
+        p = self._parent
+        out_dir = os.path.join(p.maxprojection_drive, p.pos_path[3:] + "_maxprojection", p.cycle)
+        os.makedirs(out_dir, exist_ok=True)
+        return out_dir
+
+    def write_substack_table(self):
+        """Write <cycle>_substacks.csv: the planes and piezo range behind each _zNN file."""
+        p = self._parent
+        planes = p.piezo_event_pos
+        rows = [{"group": g.index, "file_suffix": "_z%02d" % g.index, "first_plane": g.first,
+                 "last_plane": g.last, "n_planes": g.n_planes,
+                 "piezo_start_um": planes[g.first], "piezo_end_um": planes[g.last]}
+                for g in p.zstack.substack_groups()]
+        pd.DataFrame(rows).to_csv(os.path.join(self._cycle_output_dir(), p.cycle + "_substacks.csv"), index=False)
+
+    def maxprojection(self, pos):
+        """Compute the max-intensity projections of one tile and save one multi-channel TIFF per group.
+
+        Planes are streamed from the raw stack one at a time. For non-DIC channels each
+        group is the maximum over its planes; for DIC it is the group's middle plane
+        (plane 9 of 20 at the defaults).
 
         Args:
             pos: Position name string identifying the acquired tile.
         """
         p = self._parent
-        name = 'MAX_' + pos + '.tif'
-        img = skimage.io.imread(os.path.join(p.pos_path, p.cycle, pos + '_1', pos+'_NDTiffStack.tif'))
-        img_max = []
-        for i in range(len(p.channel_list)):
-            if p.channel_list[i]!='DIC':
-                img_max.append(np.max(img[i, :], axis=(0)))
-            else:
-                img_max.append(img[i, 9,:,:])
-        if not os.path.exists(os.path.join(p.maxprojection_drive,p.pos_path[3:]+"_maxprojection",p.cycle)):
-            os.mkdir(os.path.join(p.maxprojection_drive,p.pos_path[3:]+"_maxprojection",p.cycle))
-        tifffile.imwrite(os.path.join(p.maxprojection_drive,p.pos_path[3:]+"_maxprojection",p.cycle,name),np.array(img_max), photometric='minisblack')
+        out_dir = self._cycle_output_dir()
+        groups = p.zstack.substack_groups()
+        with NDTiffStack(os.path.join(p.pos_path, p.cycle, pos + '_1')) as stack:
+            for group, name in zip(groups, self.output_names(pos)):
+                img_max = []
+                for c in p.channel_list:
+                    if c != 'DIC':
+                        acc = stack.read(channel=c, z=group.first)
+                        for z in range(group.first + 1, group.last + 1):
+                            np.maximum(acc, stack.read(channel=c, z=z), out=acc)
+                    else:
+                        acc = stack.read(channel=c, z=group.dic_plane)
+                    img_max.append(acc)
+                tifffile.imwrite(os.path.join(out_dir, name), np.array(img_max), photometric='minisblack')
 
     def send_protocol(self, pos_path):
         """Transfer protocol files (JSON, TXT, CSV) from the local position path to the remote server via SCP.
@@ -386,7 +404,7 @@ class MaxProjectionManager:
         """
         p = self._parent
         print("check the transfer")
-        file_number=len(p.maxproject_list)
+        file_number=len(p.maxproject_list) * len(p.zstack.substack_groups())
         disk_directory=os.path.join(disk, p.pos_path[3:]+"_maxprojection",p.cycle)
         name_pattern=".tif"
         matched_files_disk  =[1 for j in os.listdir(disk_directory) if name_pattern in j]

@@ -75,6 +75,15 @@ def get_time():
     return time
 
 
+def image_channels_for_cycle(cycle):
+    """Imaging channels of a cycle: G/T/A/C (+ Hyb-DAPI in round 01) for sequencing, else the hyb set."""
+    if 'geneseq' in cycle or 'bcseq' in cycle or 'user_defined' in cycle:
+        if '01' in cycle:
+            return ["G", "T", "A", "C", "Hyb-DAPI"]
+        return ["G", "T", "A", "C"]
+    return ["Hyb-GFP", "Hyb-YFP", "Hyb-TxRed", "Hyb-Cy5", "Hyb-DAPI", "DIC"]
+
+
 def get_col(image_file_name):
     """Extract the column index from a tile image filename (e.g., 'Pos1_003_002.tif' -> 3)."""
     start = image_file_name.find('_', 7) + 1
