@@ -1,6 +1,7 @@
 # Plan: make the refactored code behave exactly like the Elm reference
 
-**Branch:** `reference-parity` (from `main` @ `5e5adf0`)
+**Repo:** `BarseqLab/Seq_o_matic_dev` (private), seeded from `BarseqLab/Seq_o_matics` with full history
+**Branch:** `reference-parity` (from upstream `main` @ `5e5adf0`). `main` of this repo holds the reviewed state.
 **Status:** plan only. Nothing below has been started.
 **Recorded:** 2026-10-05
 
@@ -181,5 +182,16 @@ If it misses a known one, improve the harness before fixing anything. Show the u
 - The reference is the spec. A difference from it is a bug unless it is an approved group-A item.
 - **Group-D (shared) bugs** are listed, not fixed, unless the user approves.
 
-## Open question
-Whether this line of work stays a branch of `BarseqLab/Seq_o_matics` or moves to a fork or a separate repo, so that it stays permanently separate from `main`.
+## Repositories
+- **`origin`** = `https://github.com/BarseqLab/Seq_o_matic_dev.git` (private). All work for this plan is pushed here. It is kept permanently separate from the public repo's `main`.
+- **`upstream`** = `https://github.com/BarseqLab/Seq_o_matics.git` (public). Fetch from it to pull in later changes. Never push work-in-progress there.
+- Local clone: `C:\Users\SVC_barseq\Seq_o_matics_github\`. Worktree for `reference-parity`: `.claude\worktrees\reference-parity\`.
+
+### Keeping a merge back to upstream possible
+- Never rewrite or restart history. It must keep sharing ancestry with `upstream/main`.
+- Merge `upstream/main` into this repo from time to time, so the two don't drift far apart.
+- **Anything merged back becomes public, history included.** Keep sensitive material in commits that are never sent upstream, or prepare a cleaned branch for the pull request.
+- Elm configs live in their own commit(s), so they can be left out of an upstream PR, or replaced by per-rig config files first.
+- To merge back:
+  1. Push the branch to `upstream`.
+  2. Open a PR there. GitHub cannot open a PR from a non-fork repo directly.
