@@ -1,6 +1,6 @@
 # Plan: configurable z-stack thickness
 
-**Status:** being implemented on branch `variable_stack_height`.
+**Status:** Phases 1–5 implemented on branch `variable_stack_height`, and Phase 6 offline (unit tests and dry runs). The Elm tests have not started.
 **Written:** 2026-10-05. **Updated:** 2026-10-05 for `reference-parity`.
 **Applies to:** branch `variable_stack_height`, which starts from `reference-parity` at `9011677` (the bug fixes are already in). Line numbers in "Current code that this changes" refer to `9011677`.
 **Will be tested on:** Elm.
@@ -35,6 +35,19 @@
 ## Open questions
 
 None at the moment.
+
+## Implementation (branch `variable_stack_height`)
+
+| Phase | Where |
+|---|---|
+| 1 | `system/imaging/zstack_settings.py` (settings, planes, groups, `validate`, `estimate_storage`); `ImagingSystem.zstack`; keys in `config_file/scope.json`; `docs/config_files.md` |
+| 2 | `system/imaging/ndtiff_stack.py` (reader); `focus.py` (`focus_pass` axis, `find_focus_plane`, `sharpness_<pos>.csv`, threshold); focus plot threshold in `imaging_control_panel.py` |
+| 3 | `system/imaging/autofocus.py` (`peak_plane`, `band_center_plane`); `FocusManager._check_band` |
+| 4 | `max_projection.py` (`output_names`, `write_substack_table`, streamed `maxprojection`, semaphore, transfer check); `position_utils.image_channels_for_cycle` |
+| 5 | `automation_controller.py` (`start_check`, `check_storage`, `record_start_settings`); `fluidics_control_panel.start_btn_check` (Toplevel window, override) |
+| 6 | `dryrun/tests/test_zstack.py` (19 tests); dry-run scenarios `imaging_thick_46` and `imaging_thick_100` with a sub-stack check; fake `Core.get_property`; hidden `Toplevel` windows |
+
+Not done here (needs the scope): the Elm tests in Phase 6 and the `band_center` validation on real sharpness curves.
 
 ## Current code that this changes
 

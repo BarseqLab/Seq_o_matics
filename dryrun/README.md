@@ -11,7 +11,7 @@ It is step 2 of `plans/reference_parity_plan.md`.
   - It also installs an import hook that refuses to load any real module of `serial`, `nidaqmx`, `pycromanager`, `pymmcore`, `zmq` or `ndtiff`.
   - Each trace lists any guard problems; there must be none.
 - **The program never runs in place.** Each run copies the tree into a scratch folder, so the Elm reference folder `C:\Users\SVC_barseq\Seq_o_matics_2.5\` is only read, never written.
-- **No windows appear and nothing is sent anywhere.** All windows are hidden (`DRYRUN_SHOW_GUI=1` shows them). Message boxes are answered automatically and recorded. `ssh`, `scp` and `aws` commands are recorded, never executed.
+- **No windows appear and nothing is sent anywhere.** All windows (`Tk` and `Toplevel`) are hidden (`DRYRUN_SHOW_GUI=1` shows them). Message boxes are answered automatically and recorded. `ssh`, `scp` and `aws` commands are recorded, never executed.
 
 ## Running
 
@@ -44,6 +44,7 @@ C:\Users\SVC_barseq\.conda\envs\seq_o_matic\python.exe -m unittest discover -s d
 | `imaging_uploads` | As `imaging_only`, with "Send to storage server" and "upload to AWS" ticked. |
 | `prime_wash` | Prime (fill all lines + 4 mL PBST in-chamber flush), then Wash. |
 | `cancel_restart` | Start, press Cancel during the second pump step of geneseq01, then press Start again. |
+| `imaging_thick_46`, `imaging_thick_100` | As `imaging_only`, with `z_stack_thickness_um` 46 or 100 in `scope.json`: 2 or 3 sub-stack projections per tile. Run them on `branch` only; the reference ignores the key. |
 
 All scenarios:
 - tick "Skip alignment", as real Elm runs do;
@@ -58,7 +59,7 @@ All scenarios:
 | Elveflow MUX, COM11 / COM10 | `fake_serial.MuxEmulator` | Records each valve move. |
 | Other ports | COM6 busy (held by Micro-Manager on Elm); COM1/2/4 silent; anything else missing | Matches the ports on this PC. As on Windows, a port can be open only once. As in pyserial, garbage collection closes a port. |
 | NI-DAQ heaters, Dev3 | `fake_nidaqmx` | First-order thermal model: the sensor approaches the set-point while in heat mode. Any device other than Dev1/Dev3 is invalid, as on this PC. A task that is not closed stays reserved, as in nidaqmx 0.9. |
-| Micro-Manager `Core` | `fake_pycromanager.Core` | Records stage, piezo and shutter calls. |
+| Micro-Manager `Core` | `fake_pycromanager.Core` | Records stage, piezo and shutter calls. `get_property` answers the piezo travel (0–400 µm, as in Elm's config). |
 | `Acquisition` | `fake_pycromanager.Acquisition` | Writes real NDTiff datasets (`<name>_1/<name>_NDTiffStack.tif` + `NDTiff.index`) that tifffile reads exactly like Elm data. For example, a channel swept twice collapses to the second sweep. |
 | Images | `images.py` | Synthetic sample with a **known best-focus plane** per position, which drifts 1.5 µm per cycle. The report checks that focus picks it. |
 | Time | `clock.py` | Everything runs 100× faster (`--speed`). Real thread concurrency is kept. |

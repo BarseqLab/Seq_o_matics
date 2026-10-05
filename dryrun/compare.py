@@ -138,7 +138,7 @@ def focus_results(d):
     return rows
 
 
-def checks(d, scenario):
+def checks(d, scenario, tree=None):
     from dryrun.scenarios import SCENARIOS
     sc = SCENARIOS[scenario]
     ev = d["events"]
@@ -236,6 +236,24 @@ def checks(d, scenario):
         bad = [r for r in fr if r[3] is None or abs(r[3] - r[2]) > 0.76]
         add("focus picks the sharpest plane (within half a step)", not bad,
             "; ".join(f"{c}/{p}: true {t} chose {ch}" for c, p, t, ch, _ in bad)[:300])
+    n_sub = sc.get("expect_substacks")
+    if n_sub and tree != "ref":  # the reference ignores the z-stack keys
+        by_cycle = {}
+        for path in f.get("files_maxdrive", {}):
+            folder, name = path.replace("\\", "/").rsplit("/", 1)
+            by_cycle.setdefault(folder.rsplit("/", 1)[-1], []).append(name)
+        add("max-projection drive has image cycles", bool(by_cycle), "")
+        for cyc, names in sorted(by_cycle.items()):
+            tiles = {}
+            for n in names:
+                m = re.match(r"MAX_(.+)_z(\d\d)\.tif$", n)
+                if m:
+                    tiles.setdefault(m.group(1), set()).add(int(m.group(2)))
+            plain = [n for n in names if n.endswith(".tif") and not re.search(r"_z\d\d\.tif$", n)]
+            add(f"{cyc}: {n_sub} sub-stack projections (_z00..) per tile",
+                bool(tiles) and not plain and all(v == set(range(n_sub)) for v in tiles.values()),
+                f"{len(tiles)} tiles, {sorted(names)[:6]}")
+            add(f"{cyc}: {cyc}_substacks.csv written", f"{cyc}_substacks.csv" in names, "")
     return out
 
 
@@ -271,7 +289,7 @@ def build_report(infos, trees, scenarios, ref="ref"):
         # checks
         out += ["### Behaviour checks", "", "| Check | " + " | ".join(trees) + " |",
                 "|---|" + "---|" * len(trees)]
-        res = {t: {c[0]: c for c in checks(d, sc)} for t, d in data.items()}
+        res = {t: {c[0]: c for c in checks(d, sc, t)} for t, d in data.items()}
         names = []
         for t in trees:
             for c in res.get(t, {}):
