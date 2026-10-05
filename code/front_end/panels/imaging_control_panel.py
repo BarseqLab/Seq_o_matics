@@ -178,7 +178,11 @@ class ImagingControlPanel:
                     data1['y'] = np.round((self.app.scope.y_offset[np.where(self.app.scope.slidenum == i)]))
                     data1['slidenum'] = str(i)
                     data = pd.concat([data, data1], ignore_index=True)
-                data.to_csv("aixintest.csv", index=False)
+                # Debug table: same place the reference left it (its working directory was
+                # dicfocus<cycle> after a real alignment, the program folder when alignment is skipped).
+                debug_dir = "" if self.app.skip_alignment == 1 else os.path.join(
+                    self.app.pos_path, "dicfocus" + self.app.current_cycle)
+                data.to_csv(os.path.join(debug_dir, "aixintest.csv"), index=False)
                 print(data)
                 plot2 = self.app.alignfigure.add_subplot(111)
                 plot2.scatter(0, 0, marker='o')

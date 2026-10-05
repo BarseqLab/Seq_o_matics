@@ -281,5 +281,5 @@ class AutomationController:
             f = open(os.path.join(self.app.pos_path, "log.txt"), "a")
             f.write(txt)
             f.close()
-        except OSError as e:
+        except Exception as e:
             print(f"Error writing log: {e}")

@@ -221,10 +221,6 @@ class Ismatec(object):
             print( 'Flow time undefined!\n')
 
         print( flowTimeNow)
-
-        # Calculate actual dispense rate from volume and rounded time
-        dispenseRate = float(flowVolume)/float(flowTimeNow)
-        print("Actual dispenseRate is "+str(dispenseRate))
         return
     
     def resetVolumeCounter(self) -> str:

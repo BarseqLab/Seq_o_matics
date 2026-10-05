@@ -168,7 +168,7 @@ class FluidicSystem():
             f = open(os.path.join(self.pos_path, "log.txt"), "a")
             f.write(txt)
             f.close()
-        except OSError:
+        except Exception:
             pass
 
     def config_pump(self) -> None:

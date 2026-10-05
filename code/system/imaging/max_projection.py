@@ -17,7 +17,7 @@ from pycromanager import Acquisition, Core
 
 from front_end.logwindow import (
     update_error, add_highlight_from_scope,
-    update_process_bar, update_process_label,
+    update_process_bar, update_process_label, draw_liveview,
 )
 from system.imaging.position_utils import (
     scope_constant, get_time, color_array, hattop_convert, denoise,
