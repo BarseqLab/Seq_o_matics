@@ -157,6 +157,21 @@ def checks(d, scenario):
     if sc["steps"] == "prime_wash":
         add("Prime finished (PBST flush done)", "reached: Prime done" in steps)
         add("Wash finished", "reached: Wash done" in steps)
+    if sc.get("daq_fault"):
+        fault = next((e for e in ev if e["kind"] == "daq_error" and e.get("reason") == "injected read fault"), None)
+        add("injected heater fault happened", fault is not None)
+        if fault is not None:
+            line = {"Dev3/ai0": "Dev3/port1/line0", "Dev3/ai1": "Dev3/port1/line1",
+                    "Dev3/ai3": "Dev3/port1/line2"}[fault["channel"]]
+            nxt = next((e for e in ev if e["kind"] == "daq_write" and e.get("channel") == line
+                        and e["t"] >= fault["t"]), None)
+            add("failed stage switched back to image mode straight after the fault",
+                nxt is not None and nxt.get("value") is True and nxt["t"] - fault["t"] < 5,
+                f"next write on {line}: {None if nxt is None else (nxt.get('value'), round(nxt['t'] - fault['t'], 1))}")
+            log = f.get("exp_text_files", {}).get("log.txt", "")
+            after = log[log.rfind("start heat"):] if "start heat" in log else log
+            add("heat step with the failed stage is reported as failed",
+                "One or more stages has issue" in after and "All stages heated successfully" not in after)
     if sc["steps"] == "pump_speed":
         start = d.get("pump_field_at_startup")
         add("pump speed field pre-filled with the saved value at start-up",

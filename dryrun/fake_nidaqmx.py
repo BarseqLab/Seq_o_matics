@@ -48,6 +48,7 @@ class _Model:
         self.temp = {ai: AMBIENT_V for _, _, ai in STAGES}
         self.t_last = clock.vnow()
         self.reserved = {}
+        self.heat_starts = 0
 
     def _advance(self):
         now = clock.vnow()
@@ -65,6 +66,8 @@ class _Model:
         with self.lock:
             self._advance()
             if channel == AO_CHANNEL:
+                if float(value) >= 5.0:
+                    self.heat_starts += 1
                 self.ao = float(value)
             elif channel in self.do:
                 self.do[channel] = bool(value)
@@ -76,6 +79,10 @@ class _Model:
 
 
 MODEL = None
+# Optional injected fault, set by the scenario: the first read of `channel` during the
+# `heat_start`-th heat start (counting every set-point write >= 5 V, including the heater
+# self-test in device configuration) fails once.
+FAULT = {}
 
 
 def _check_device(name):
@@ -150,6 +157,12 @@ class Task:
         if self._closed:
             raise DaqError("Task specified is invalid or does not exist.", error_code=-200088)
         self._reserve()
+        for kind, ch in self._channels:
+            if (kind == "ai" and FAULT.get("channel") == ch and not FAULT.get("fired")
+                    and MODEL.heat_starts >= FAULT.get("heat_start", 10 ** 9)):
+                FAULT["fired"] = True
+                trace.record("daq_error", channel=ch, reason="injected read fault")
+                raise DaqError("Injected fault: the hardware did not respond in time.", error_code=-200474)
         vals = [MODEL.read(ch) for kind, ch in self._channels if kind == "ai"]
         return vals[0] if len(vals) == 1 else vals
 

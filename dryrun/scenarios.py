@@ -63,6 +63,19 @@ SCENARIOS = {
         "process": ["imagecycle00", "imagecycle_geneseq01"],
         "server": 0, "aws": 0, "steps": "cancel_restart", "cancel_during": "maxproj", "restart": False,
     },
+    "heater_fault": {
+        "description": "geneseq01 fluidics; heat stage 2's temperature read fails at the start of the second heat step.",
+        "process": ["Fluidics_sequence_geneseq01"],
+        "server": 0, "aws": 0, "steps": "auto",
+        # heat starts: 1 = heater self-test during device configuration, 2 and 3 = geneseq01 heat steps
+        "daq_fault": {"channel": "Dev3/ai1", "heat_start": 3},
+    },
+    "imaging_two_channels": {
+        "description": "Imaging-only run with the align channel (DIC) different from the focus target (Hyb-DAPI).",
+        "process": ["imagecycle00", "imagecycle_geneseq01"],
+        "server": 0, "aws": 0, "steps": "auto",
+        "config": {"align_channel": "DIC"},
+    },
     "pump_speed": {
         "description": "Pump-speed field: value at start-up, Prime with an empty field, Start with '1.58' plus a stray newline.",
         "process": ["imagecycle00"],
@@ -169,6 +182,11 @@ def common_setup(app, ctx):
 
 def run_auto(app, ctx):
     common_setup(app, ctx)
+    fault = SCENARIOS[ctx["scenario"]].get("daq_fault")
+    if fault:
+        from dryrun import fake_nidaqmx
+        fake_nidaqmx.FAULT.update(fault)
+        trace.record("driver", step=f"arm DAQ fault {fault}")
     trace.record("driver", step="press Start, confirm pump speed")
     gui.call(app.start_btn_check)
     gui.call(app.start_btn_handler)

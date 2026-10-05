@@ -59,18 +59,22 @@ def prepare_tree(name, scratch):
     return dst
 
 
-def apply_test_config(tree, maxdrive, imwidth):
+def apply_test_config(tree, maxdrive, imwidth, extra=None):
     p = os.path.join(tree, "config_file", "scope.json")
     with open(p, encoding="utf-8") as f:
         cfg = json.load(f)
     orig = dict(cfg[0])
     cfg[0]["imwidth"] = imwidth
+    cfg[0].update(extra or {})  # scenario-specific scope.json values, applied to every tree alike
     if cfg[0].get("maxproject_drive", "").upper() in ("D:\\", "D:/", "D:"):
         cfg[0]["maxproject_drive"] = maxdrive.rstrip("\\") + "\\"
     with open(p, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=1)
-    return {"imwidth": [orig.get("imwidth"), imwidth],
-            "maxproject_drive": [orig.get("maxproject_drive"), cfg[0]["maxproject_drive"]]}
+    changed = {"imwidth": [orig.get("imwidth"), imwidth],
+               "maxproject_drive": [orig.get("maxproject_drive"), cfg[0]["maxproject_drive"]]}
+    for k, v in (extra or {}).items():
+        changed[k] = [orig.get(k), v]
+    return changed
 
 
 def run_one(tree_name, scenario, scratch, args):
@@ -82,7 +86,7 @@ def run_one(tree_name, scenario, scratch, args):
     tree = prepare_tree_cached(tree_name, scratch, run_dir)
     maxdrive = os.path.join(run_dir, "maxdrive")
     os.makedirs(maxdrive)
-    overrides = apply_test_config(tree, maxdrive, args.imwidth)
+    overrides = apply_test_config(tree, maxdrive, args.imwidth, scenarios.SCENARIOS[scenario].get("config"))
     exp = os.path.join(run_dir, "exp")
     scenarios.setup_experiment(exp, scenario)
     os.makedirs(os.path.join(maxdrive, os.path.dirname(exp[3:])), exist_ok=True)
