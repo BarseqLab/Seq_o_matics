@@ -12,3 +12,6 @@ code/supplementary/selector
 code/supplementary/NIDAQ
 cod/supplementary/MicroManager_install"code/supplementary/MicroManager_install/*.exe" 
 "code/supplementary/selector/bin/**/*.exe" 
+
+# dry-run harness byproducts
+dryrun/**/__pycache__/

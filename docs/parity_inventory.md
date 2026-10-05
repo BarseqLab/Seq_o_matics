@@ -148,6 +148,7 @@ The file now holds Elm's 1.58 (commit `3393477`). For the fix, see GA10/Q8 in "R
 | D18 | `scope_constant` lacks `scope_*` attributes, so `AttributeError` if `piezo != 1`. Elm has `piezo: 1`. | I16 | |
 | D19 | Max-projection semaphore never acquired, so threads are unbounded (memory pressure if projection lags). | I18 | |
 | D20 | A second acquisition failure kills the max-projection thread, and the run waits until Cancel. Also: `~bool` in `Assign_image_channel` (no effect). | I19, I20 | |
+| D21 | **Cancel in an automated run never disconnects the devices.** Afterwards, COM9/COM10/COM11 stay open and the Dev3 heater channels stay reserved. Pressing Start again then fails in `connect_selector` with `SerialException ... COM11: Access is denied`, so the operator must restart the program. The pump itself reconnects, because its old object is garbage-collected. Shown by the dry run `cancel_restart` in both trees, 2026-10-05. Fix together with the deferred Cancel/pump-stop work, because `disconnect_pump` sends the pump stop. | `docs/dryrun_results/checkpoint2_summary.md` | |
 
 ---
 
