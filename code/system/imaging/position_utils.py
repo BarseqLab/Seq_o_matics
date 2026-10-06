@@ -20,24 +20,10 @@ from pytz import timezone
 class scope_constant():
     """Hardware constants for microscope imaging parameters.
 
-    Stores default piezo focus range, step sizes, sharpening kernel,
-    and other imaging constants used throughout the acquisition pipeline.
-    These values define the z-stack sweep ranges for both focusing and
-    max-projection acquisition modes.
+    Z-stack and focus sweep ranges are not here: they come from scope.json
+    through system.imaging.zstack_settings.
     """
 
-    piezo_focus_start_pos = -30
-    piezo_focus_end_pos = 30
-    piezo_step = 1.5
-
-    # scope_start_pos = -15
-    # scope_end_pos = 15
-    # scope_focus_end_pos = 30
-    # scope_focus_start_pos = -30
-    # scope_step = 1.5
-
-    piezo_maxpro_start_pos = -15
-    piezo_maxpro_end_pos = 15
     sharpen1 = np.array(([0, 1, 0],
                          [-1, 5, -1],
                          [0, -1, 0]), dtype="int")
@@ -87,6 +73,15 @@ def get_time():
     time_now = timezone('US/Pacific')
     time = str(datetime.now(time_now))[0:19] + "\n"
     return time
+
+
+def image_channels_for_cycle(cycle):
+    """Imaging channels of a cycle: G/T/A/C (+ Hyb-DAPI in round 01) for sequencing, else the hyb set."""
+    if 'geneseq' in cycle or 'bcseq' in cycle or 'user_defined' in cycle:
+        if '01' in cycle:
+            return ["G", "T", "A", "C", "Hyb-DAPI"]
+        return ["G", "T", "A", "C"]
+    return ["Hyb-GFP", "Hyb-YFP", "Hyb-TxRed", "Hyb-Cy5", "Hyb-DAPI", "DIC"]
 
 
 def get_col(image_file_name):

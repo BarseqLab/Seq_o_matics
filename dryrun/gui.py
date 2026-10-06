@@ -12,6 +12,7 @@ from dryrun import clock, trace
 SHOW = os.environ.get("DRYRUN_SHOW_GUI") == "1"
 _root = None
 _REAL_TK_INIT = tkinter.Tk.__init__
+_REAL_TOPLEVEL_INIT = tkinter.Toplevel.__init__
 _REAL_MAINLOOP = tkinter.Misc.mainloop
 
 
@@ -23,6 +24,12 @@ def _tk_init(self, *args, **kwargs):
     if not SHOW:
         self.withdraw()
     self.report_callback_exception = _report_callback_exception
+
+
+def _toplevel_init(self, *args, **kwargs):
+    _REAL_TOPLEVEL_INIT(self, *args, **kwargs)
+    if not SHOW:
+        self.withdraw()
 
 
 def _report_callback_exception(exc, val, tb):
@@ -52,6 +59,7 @@ def install(on_mainloop):
     global _on_mainloop
     _on_mainloop = on_mainloop
     tkinter.Tk.__init__ = _tk_init
+    tkinter.Toplevel.__init__ = _toplevel_init
     tkinter.Misc.mainloop = _mainloop
     for kind in ("showinfo", "showwarning", "showerror", "askyesno", "askokcancel", "askquestion",
                  "askretrycancel", "askyesnocancel"):

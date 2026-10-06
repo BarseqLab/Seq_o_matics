@@ -25,6 +25,12 @@ class _Scope:
 
 SCOPE = _Scope()
 
+# Device properties as strings, like MMCore; piezo travel from Elm's MMConfig_Ti2E-xc2.cfg.
+PROPERTIES = {
+    ("DA Z Stage", "Stage Low Position(um)"): "0.0000",
+    ("DA Z Stage", "Stage High Position(um)"): "400.0000",
+}
+
 
 class Core:
     def __init__(self, *args, **kwargs):
@@ -53,6 +59,10 @@ class Core:
 
     def set_shutter_open(self, *args):
         trace.record("core", call="set_shutter_open", args=list(args))
+
+    def get_property(self, dev, prop):
+        trace.record("core", call="get_property", dev=dev, args=[prop])
+        return PROPERTIES.get((dev, prop))
 
     def get_position(self, dev=None):
         with SCOPE.lock:

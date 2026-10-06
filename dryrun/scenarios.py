@@ -76,6 +76,18 @@ SCENARIOS = {
         "server": 0, "aws": 0, "steps": "auto",
         "config": {"align_channel": "DIC"},
     },
+    "imaging_thick_46": {
+        "description": "Imaging-only run with a 46 um z-stack: 31 planes, 2 sub-stack projections per tile (20/11).",
+        "process": ["imagecycle00", "imagecycle_geneseq01"],
+        "server": 0, "aws": 0, "steps": "auto",
+        "config": {"z_stack_thickness_um": 46}, "expect_substacks": 2,
+    },
+    "imaging_thick_100": {
+        "description": "Imaging-only run with a 100 um z-stack: 67 planes, 3 um focus step, 3 sub-stacks (20/20/27).",
+        "process": ["imagecycle00", "imagecycle_geneseq01"],
+        "server": 0, "aws": 0, "steps": "auto",
+        "config": {"z_stack_thickness_um": 100}, "expect_substacks": 3,
+    },
     "pump_speed": {
         "description": "Pump-speed field: value at start-up, Prime with an empty field, Start with '1.58' plus a stray newline.",
         "process": ["imagecycle00"],

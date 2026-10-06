@@ -151,8 +151,9 @@ class ImagingControlPanel:
         try:
             plot1 = self.app.focusfigure.add_subplot(111)
             plot1.plot(diff)
-            plot1.axhline(y=20, color='r')
-            plot1.axhline(y=-20, color='r')
+            threshold = self.app.scope.zstack.extreme_threshold()
+            plot1.axhline(y=threshold, color='r')
+            plot1.axhline(y=-threshold, color='r')
             plot1.get_xaxis().set_visible(False)
             plot1.get_yaxis().set_visible(False)
             self.app.canvas_focus.draw()

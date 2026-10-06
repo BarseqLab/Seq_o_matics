@@ -13,7 +13,19 @@
 "geneseq_focus_target_channel":"Hyb-DAPI",
 "Hyb_focus_target_channel":"Hyb-DAPI",
 "maxproject_drive":"D:\\",
-"align_channel":"Hyb-DAPI"}
+"align_channel":"Hyb-DAPI",
+"z_stack_thickness_um":250,
+"z_step_um":1.5,
+"focus_step_um":1.5,
+"focus_step_thick_um":3,
+"thick_section_um":50,
+"focus_range_cap_um":300,
+"focus_method":"peak",
+"focus_extreme_change_frac":0.3333,
+"band_center_frac":0.5,
+"maxproj_split_above_um":30,
+"maxproj_substack_um":30,
+"storage_margin":1.10}
 ]
 
 

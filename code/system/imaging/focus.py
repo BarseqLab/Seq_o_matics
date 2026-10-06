@@ -12,13 +12,14 @@ import cv2
 import numpy as np
 import pandas as pd
 import skimage
-import tifffile
 from pycromanager import Acquisition
 
 from front_end.logwindow import (
     update_error, add_highlight_from_scope,
     update_process_bar, update_process_label,
 )
+from system.imaging.autofocus import band_center_plane, peak_plane
+from system.imaging.ndtiff_stack import NDTiffStack
 from system.imaging.position_utils import (
     scope_constant, get_time, clean_space, copy_dic, save_offset_and_json,
 )
@@ -64,43 +65,35 @@ class FocusManager:
         gnorm = np.sqrt(gx ** 2 + gy ** 2)
         return np.average(gnorm)
 
-    def calculate_z_stack(self, start_pos, end_pos):
-        """Calculate piezo z-stack positions centered on the piezo middle position from the cycle CSV.
+    def calculate_z_stack(self, planes_for):
+        """Piezo positions centred on the piezo middle position from the cycle CSV.
 
         Args:
-            start_pos: Relative start offset from the piezo middle position.
-            end_pos: Relative end offset from the piezo middle position.
-
-        Returns:
-            NumPy array of absolute piezo positions for the z-stack sweep.
+            planes_for: Function mapping the middle position to absolute plane
+                positions, e.g. ``p.zstack.focus_planes``.
         """
         p = self._parent
         df = pd.read_csv(os.path.join(p.pos_path, p.cycle + ".csv"))
         p.piezo_middle_pos = df['piezo'][0]
-        piezo_event_pos = np.arange(p.piezo_middle_pos + start_pos, p.piezo_middle_pos + end_pos,
-                                    scope_constant.piezo_step)
-        return piezo_event_pos
+        return planes_for(p.piezo_middle_pos)
 
-    def create_piezo_event(self, channel, start_pos, end_pos):
-        """Build a list of pycromanager acquisition events for a piezo-driven multi-channel z-stack.
+    def create_piezo_event(self, channel, planes_for, pass_axis=False):
+        """Build pycromanager events for a piezo-driven multi-channel z-stack.
 
-        Each event specifies a channel, z-slice index, exposure time, and piezo z position.
-
-        Args:
-            channel: List of channel names (e.g., ['G', 'T', 'A', 'C']).
-            start_pos: Relative start offset for z-stack.
-            end_pos: Relative end offset for z-stack.
-
-        Returns:
-            List of event dictionaries compatible with pycromanager Acquisition.acquire().
+        Channels are the outer loop and planes the inner loop. With pass_axis,
+        each channel gets a ``focus_pass`` axis (0, 1, ...), so two passes on the
+        same channel are stored separately instead of the second replacing the first.
         """
         p = self._parent
-        p.piezo_event_pos = self.calculate_z_stack(start_pos, end_pos)
+        p.piezo_event_pos = self.calculate_z_stack(planes_for)
         piezo_event = []
         p.channel=[]
-        for c in channel:
+        for k, c in enumerate(channel):
             for z in range(0, len(p.piezo_event_pos)):
-                piezo_event.append({'axes': {'channel': c, 'z': z},
+                axes = {'channel': c, 'z': z}
+                if pass_axis:
+                    axes['focus_pass'] = k
+                piezo_event.append({'axes': axes,
                                     'config_group': ['Channel', c],
                                     'exposure': p.scope_exposure_time_dict.get(c),
                                     'z': p.piezo_event_pos[z]})
@@ -194,40 +187,64 @@ class FocusManager:
         pass
 
     def find_focus_plane(self, pos):
-        """Find the best-focused z-plane for a given position by maximizing sharpness.
+        """Find the best-focused z-plane for a given position.
 
-        Reads the z-stack from the focus acquisition, computes sharpness for each slice,
-        selects the sharpest plane, saves the best-focus image as a TIFF, and records
+        Streams the target pass of the focus stack, computes sharpness per plane,
+        picks the plane with the configured method (peak or band_center), saves
+        the align-pass image at that plane and the sharpness curve, and records
         the corresponding piezo z position.
 
         Args:
             pos: Position name string (e.g., 'Pos0').
         """
         p = self._parent
+        zs = p.zstack
         focus_dir = os.path.join(p.pos_path, "focus" + p.cycle)
-        img = tifffile.imread(os.path.join(focus_dir, pos+"_1", pos + "_NDTiffStack.tif"))
-        # The stack is acquired channel by channel: pass 1 = align channel, pass 2 = focus
-        # target channel (create_piezo_event, focus_channel = [align, target]). The best
-        # plane is searched only in the focusing pass; the saved image comes from the align
-        # pass at the same plane.
-        n_planes = len(p.piezo_event_pos)
-        frames = np.asarray(img).reshape(-1, p.imwidth, p.imwidth)
-        if len(frames) == 2 * n_planes:
-            display_img, focusimg = frames[:n_planes], frames[n_planes:]
-        else:
-            # Same channel used for both passes: the dataset keeps one image per
-            # (channel, z), which is the later (focusing) pass.
-            display_img = focusimg = frames
-        sharpness = [self.get_sharpness(i[800:2400, 800:2400], scope_constant.sharpen1) for i in focusimg]
-        max_index = np.argmax(sharpness)
+        planes = p.piezo_event_pos
+        align_channel, target_channel = p.focus_channel
+        # Pass 0 = align channel, pass 1 = focus target (create_piezo_event with pass_axis).
+        # Sharpness comes from the target pass; the saved image from the align pass.
+        crop = slice(p.imwidth // 4, p.imwidth - p.imwidth // 4)
+        with NDTiffStack(os.path.join(focus_dir, pos + "_1")) as stack:
+            sharpness = [self.get_sharpness(stack.read(channel=target_channel, z=z, focus_pass=1)[crop, crop],
+                                            scope_constant.sharpen1)
+                         for z in range(len(planes))]
+            method = zs.focus_method_for()
+            if method == "band_center":
+                max_index, first, last = band_center_plane(sharpness, zs.band_center_frac)
+                self._check_band(pos, first, last, len(planes))
+            else:
+                max_index = peak_plane(sharpness)
+            im = stack.read(channel=align_channel, z=max_index, focus_pass=0)
+        pd.DataFrame({"plane": range(len(planes)), "piezo_um": planes, "sharpness": sharpness,
+                      "chosen": [z == max_index for z in range(len(planes))]}).to_csv(
+            os.path.join(focus_dir, "sharpness_" + pos + ".csv"), index=False)
         z_name = os.path.join(focus_dir, pos + ".tif")
-        im = display_img[max_index]
         skimage.io.imsave(z_name, im, photometric='minisblack')
-        dict = {pos: p.piezo_event_pos[max_index]}
+        dict = {pos: planes[max_index]}
         p.z_new_ls.update(dict)
         txt = get_time() + p.cycle + " Position " + str(pos) + ' is_finished \n'
         p.write_log(txt)
         add_highlight_from_scope(txt)
+
+    def _check_band(self, pos, first, last, n_planes):
+        """Log the band_center band width; flag focus as bad if it looks unreliable."""
+        p = self._parent
+        zs = p.zstack
+        width = (last - first + 1) * zs.focus_step
+        txt = (get_time() + p.cycle + " " + pos + f" sharp band {width:g} um (planes {first}-{last}), "
+               f"estimated tissue thickness\n")
+        p.write_log(txt)
+        problems = []
+        if width > zs.z_stack_thickness_um:
+            problems.append(f"band {width:g} um is wider than the {zs.z_stack_thickness_um:g} um stack")
+        if first == 0 or last == n_planes - 1:
+            problems.append("band touches the end of the focus sweep, focus may lie outside it")
+        for problem in problems:
+            txt = get_time() + p.cycle + " " + pos + " " + problem + "\n"
+            update_error(txt)
+            p.write_log(txt)
+            p.focus_bad = 1
 
     def focus_image(self, cycle, poslist):
         """Acquire focus z-stacks at all positions and determine the optimal focus plane.
@@ -256,8 +273,7 @@ class FocusManager:
             p.target_channel = p.gene_target_channel
         print(p.focus_channel)
         p.z_new_ls = {}
-        p.piezo_event = self.create_piezo_event(p.focus_channel, scope_constant.piezo_focus_start_pos,
-                                                   scope_constant.piezo_focus_end_pos)
+        p.piezo_event = self.create_piezo_event(p.focus_channel, p.zstack.focus_planes, pass_axis=True)
         threads = []
         focus_dir = os.path.join(p.pos_path, "focus" + p.cycle)
         clean_space(focus_dir)
@@ -345,8 +361,9 @@ class FocusManager:
         try:
             copy_dic(p.pos_path, "focus" + p.cycle, "dicfocus" + p.cycle)
             diff = save_offset_and_json(p.pos_path, p.cycle + ".csv", p.z_new_ls, p.cycle + ".pos",p.z_dir)
+            threshold = p.zstack.extreme_threshold()
             for i in range(len(diff)):
-                if abs(diff[i]) >= 20:
+                if abs(diff[i]) >= threshold:
                     #p.focus_status = 0
                     txt = get_time() + p.cycle + ' extrem focus change detected at ' + str(
                         i) + " position!\n"
