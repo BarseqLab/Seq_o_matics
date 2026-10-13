@@ -100,30 +100,10 @@ class ExperimentConfigPanel:
             self.app.account_field_manual["state"] = "disable"
 
     def upload_to_aws_auto(self):
-        """Toggle the AWS credential fields between editable and disabled on the auto tab."""
-        if self.app.upload_aws_value.get() == 1:
-            self.app.aws_account_lb_auto.config(fg=widge_attr.normal_color)
-            self.app.aws_password_lb_auto.config(fg=widge_attr.normal_color)
-            self.app.aws_account_field_auto["state"] = "normal"
-            self.app.aws_pwd_field_auto["state"] = "normal"
-        else:
-            self.app.aws_account_lb_auto.config(fg=widge_attr.disable_color)
-            self.app.aws_password_lb_auto.config(fg=widge_attr.disable_color)
-            self.app.aws_account_field_auto["state"] = "disable"
-            self.app.aws_pwd_field_auto["state"] = "disable"
+        """The AWS account/password fields are unused (the AWS CLI's own credentials are used), so they stay disabled."""
 
     def upload_to_aws_manual(self):
-        """Toggle the AWS credential fields between editable and disabled on the manual tab."""
-        if self.app.upload_aws_value.get() == 1:
-            self.app.aws_account_lb_manual.config(fg=widge_attr.normal_color)
-            self.app.aws_password_lb_manual.config(fg=widge_attr.normal_color)
-            self.app.aws_account_field_manual["state"] = "normal"
-            self.app.aws_pwd_field_manual["state"] = "normal"
-        else:
-            self.app.aws_account_lb_manual.config(fg=widge_attr.disable_color)
-            self.app.aws_password_lb_manual.config(fg=widge_attr.disable_color)
-            self.app.aws_account_field_manual["state"] = "disable"
-            self.app.aws_pwd_field_manual["state"] = "disable"
+        """The AWS account/password fields are unused (the AWS CLI's own credentials are used), so they stay disabled."""
 
     def assign_cycle_detail(self):
         """Read the protocol.csv file and build the ordered process list, inserting imagecycle00 if needed."""

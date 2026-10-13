@@ -60,6 +60,48 @@ class WorkspacePanel:
             work_path = self.app.work_path_field_manual.get()
             Exp_profile(work_path)
 
+    def _storage_ok(self, server):
+        """Load config_file/storage.json and test the AWS / server connections the operator ticked.
+
+        Returns False (after showing an error dialog and writing to the warning panel) when storage.json is
+        missing or invalid, or when a connection check fails; the experiment is then not created.
+        """
+        import threading
+        from front_end.logwindow import add_highlight_mainwindow, update_error
+        from system import connection_check
+        from system.storage_settings import StorageSettings, StorageSettingsError, default_path
+
+        try:
+            settings = StorageSettings.load(default_path())
+        except StorageSettingsError as e:
+            msg = "storage.json error: " + str(e)
+            messagebox.showerror(title="Storage settings", message=msg)
+            update_error(msg + "\n")
+            return False
+        self.app.storage = settings
+        use_aws = self.app.upload_aws_value.get() == 1
+        use_server = self.app.change_server_value.get() == 1
+        if not (use_aws or use_server):
+            return True
+        add_highlight_mainwindow("Testing connections...\n")
+        results = []
+        worker = threading.Thread(
+            target=lambda: results.extend(connection_check.check_all(settings, server, use_aws, use_server)),
+            daemon=True)
+        worker.start()
+        while worker.is_alive():  # keep the window responsive while ssh / aws run
+            self.app.parent_window.update()
+            worker.join(timeout=0.05)
+        for r in results:
+            add_highlight_mainwindow(str(r) + "\n")
+        failed = [r for r in results if not r.ok]
+        if failed:
+            msg = "Connection test failed:\n" + "\n".join(str(r) for r in failed)
+            messagebox.showerror(title="Connection test failed", message=msg)
+            update_error(msg + "\n")
+            return False
+        return True
+
     def create_exp_auto(self):
         """Validate auto tab inputs, initialize the microscope and fluidics systems, and prepare the full automation protocol."""
         import json
@@ -83,6 +125,8 @@ class WorkspacePanel:
         if self.app.work_path_field_auto.get() == "":
             messagebox.showinfo(title="Wrong Input", message="work directory can't be empty")
             return
+        if not self._storage_ok(self.app.account_field_auto.get() + "@" + self.app.server_field_auto.get()):
+            return
         self.app.pos_path = self.app.work_path_field_auto.get()
         if not os.path.exists(os.path.join(self.app.pos_path, "temp.txt")):
             open(os.path.join(self.app.pos_path, "temp.txt"), 'w')
@@ -100,6 +144,7 @@ class WorkspacePanel:
                 self.app.scope_cfg, self.app.pos_path, self.app.slice_per_slide,
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
+                storage=self.app.storage,
             )
         except Exception as e:
             messagebox.showinfo(title="Config failure ",
@@ -155,6 +200,8 @@ class WorkspacePanel:
         if self.app.slice_number_field_manual.get() == "":
             messagebox.showinfo(title="Wrong Input", message="slice per slide can't be empty")
             return
+        if not self._storage_ok(self.app.server):
+            return
         self.app.slice_per_slide_reformat_manual()
         self.app.protocol_list = [self.app.current_cycle]
         if "00" in self.app.current_cycle:
@@ -176,6 +223,7 @@ class WorkspacePanel:
                 self.app.scope_cfg, self.app.pos_path, self.app.slice_per_slide,
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
+                storage=self.app.storage,
             )
         except Exception as e:
             messagebox.showinfo(title="Config failure ",

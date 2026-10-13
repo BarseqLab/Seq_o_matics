@@ -66,6 +66,10 @@ my_widges.server_account_lb_manual.grid(row=1, column=3, padx=5, sticky="w")
 my_widges.account_field_manual.grid(row=1, column=4, padx=5, sticky="w")
 my_widges.server_lb_manual.grid(row=1, column=5, padx=5, sticky="w")
 my_widges.server_field_manual.grid(row=1, column=6, padx=5, sticky="w")
+my_widges.server_root_lb_auto.grid(row=2, column=3, padx=5, sticky="w")
+my_widges.server_root_field_auto.grid(row=2, column=4, columnspan=3, padx=5, sticky="w")
+my_widges.server_root_lb_manual.grid(row=2, column=3, padx=5, sticky="w")
+my_widges.server_root_field_manual.grid(row=2, column=4, columnspan=3, padx=5, sticky="w")
 
 
 
@@ -74,12 +78,16 @@ my_widges.aws_account_lb_auto.grid(row=0, column=1, padx=5, sticky="w")
 my_widges.aws_account_field_auto.grid(row=0, column=2, padx=5,sticky="w")
 my_widges.aws_password_lb_auto.grid(row=0, column=3, padx=5, sticky="w")
 my_widges.aws_pwd_field_auto.grid(row=0, column=4, padx=5, sticky="w")
+my_widges.aws_bucket_lb_auto.grid(row=1, column=1, padx=5, sticky="w")
+my_widges.aws_bucket_field_auto.grid(row=1, column=2, columnspan=3, padx=5, sticky="w")
 
 my_widges.upload_aws_manual.grid(row=0, column=0, padx=5, sticky="w")
 my_widges.aws_account_lb_manual.grid(row=0, column=1, padx=5, sticky="w")
 my_widges.aws_account_field_manual.grid(row=0, column=2, padx=5,sticky="w")
 my_widges.aws_password_lb_manual.grid(row=0, column=3, padx=5, sticky="w")
 my_widges.aws_pwd_field_manual.grid(row=0, column=4, padx=5, sticky="w")
+my_widges.aws_bucket_lb_manual.grid(row=1, column=1, padx=5, sticky="w")
+my_widges.aws_bucket_field_manual.grid(row=1, column=2, columnspan=3, padx=5, sticky="w")
 
 my_widges.info_btn_auto.grid(row=2, column=0, padx=10, pady=5)
 my_widges.info_btn_manual.grid(row=2, column=0, padx=10, pady=5)

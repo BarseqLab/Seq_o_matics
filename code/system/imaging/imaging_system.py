@@ -40,7 +40,7 @@ class ImagingSystem:
     - MaxProjectionManager: max-projection and data transfer
     """
 
-    def __init__(self, cfg, pos_path, slice_per_slide, server, mock_align, fine_align, system_path):
+    def __init__(self, cfg, pos_path, slice_per_slide, server, mock_align, fine_align, system_path, storage=None):
         """Initialize the scope controller with hardware configuration and experiment parameters.
 
         Args:
@@ -52,6 +52,7 @@ class ImagingSystem:
             mock_align: Flag (1 = skip alignment computation, use identity transform).
             fine_align: Flag for enabling fine alignment mode.
             system_path: Path to the system code directory.
+            storage: StorageSettings (config_file/storage.json), used for the remote server folder.
         """
         self.system_path = system_path
         self.scope_cfg = cfg
@@ -67,6 +68,7 @@ class ImagingSystem:
         self.live_plot = 0
         self.focus_bad = 0
         self.linux_server = server
+        self.storage = storage
         self.mock_align = mock_align
         self.ZDrive_safe_pos = self.scope_cfg[0]["ZDrive_safe_pos"]
         self.XYStage_fluidics_safe_pos = self.scope_cfg[0]["XYStage_fluidics_safe_pos"]

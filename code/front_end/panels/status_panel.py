@@ -57,7 +57,11 @@ class StatusPanel:
         f = open(os.path.join(self.app.pos_path, "experiment_detail.txt"), "a")
         f.write(txt)
         f.close()
-        server_path = '/mnt/imagestorage/' + self.app.pos_path[3:]
+        if self.app.storage is None:
+            add_highlight_mainwindow(_get_time() + "local note saved to experiment_detail.txt; not uploaded: "
+                                     "storage settings are not loaded (create the experiment first)\n")
+            return
+        server_path = self.app.storage.remote_path(self.app.pos_path)
         self.app.linux_server = self.app.server
         try:
             cmd = ("scp " + os.path.join(self.app.pos_path, "experiment_detail.txt")
@@ -87,15 +91,17 @@ class StatusPanel:
 
         Each <maxprojection drive>/<experiment>_maxprojection/<cycle> folder is packed
         into <cycle>.tar.zst (zstd level 3, streaming) and copied with
-        `aws s3 cp ... --storage-class INTELLIGENT_TIERING --checksum-algorithm SHA256`
-        (up to 3 attempts, using the AWS CLI's own credentials). The local archive is
+        `aws s3 cp ... --storage-class <aws_storage_class> --checksum-algorithm SHA256`
+        (bucket, prefix, storage class and retries come from config_file/storage.json)
+        (up to aws_upload_retries attempts, using the AWS CLI's own credentials). The local archive is
         deleted only after a successful upload. Runs in the calling thread, as in the
         reference.
         """
         folder = self.app.pos_path[3:] + "_maxprojection"
         base_dir = os.path.join(self.app.scope.maxprojection_drive, folder)
-        bucket = "barseq-acquisition"
-        max_retries = 3
+        storage = self.app.storage
+        max_retries = storage.aws_upload_retries
+        add_highlight_mainwindow(_get_time() + f"AWS upload to s3://{storage.aws_bucket}/{storage.s3_folder(folder)}/\n")
         if not os.path.isdir(base_dir):
             txt = _get_time() + f"AWS upload skipped: {base_dir} does not exist\n"
             print(txt)
@@ -106,7 +112,7 @@ class StatusPanel:
             if not os.path.isdir(sub_path):
                 continue
             archive_path = os.path.join(base_dir, f"{name}.tar.zst")
-            s3_uri = f"s3://{bucket}/{folder}/{name}.tar.zst"
+            s3_uri = storage.s3_uri(folder, f"{name}.tar.zst")
             # 1. Tar + zstd-compress the folder (streaming, no intermediate uncompressed tar)
             print(f"Creating {archive_path}")
             cctx = zstandard.ZstdCompressor(level=3, threads=-1)
@@ -120,7 +126,7 @@ class StatusPanel:
                 print(f"Attempt {attempt}/{max_retries}: uploading to {s3_uri}")
                 upload = subprocess.run([
                     "aws", "s3", "cp", archive_path, s3_uri,
-                    "--storage-class", "INTELLIGENT_TIERING",
+                    "--storage-class", storage.aws_storage_class,
                     "--checksum-algorithm", "SHA256",
                 ])
                 if upload.returncode == 0:

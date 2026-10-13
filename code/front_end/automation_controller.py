@@ -59,6 +59,7 @@ class AutomationController:
                 self.app.scope_cfg, self.app.pos_path, self.app.slice_per_slide,
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
+                storage=self.app.storage,
             )
             # Upload only what the operator ticked when the experiment was created.
             if getattr(self.app, "Local_upload", 0) == 1:
@@ -95,6 +96,7 @@ class AutomationController:
                 self.app.scope_cfg, self.app.pos_path, self.app.slice_per_slide,
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
+                storage=self.app.storage,
             )
             self.app.scope.move_to_fluidics()
             try:
@@ -128,6 +130,7 @@ class AutomationController:
                 self.app.scope_cfg, self.app.pos_path, self.app.slice_per_slide,
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
+                storage=self.app.storage,
             )
             self.app.scope.move_to_image()
             self.app.scope.cancel_process = 0
@@ -152,6 +155,7 @@ class AutomationController:
                 self.app.scope_cfg, self.app.pos_path, self.app.slice_per_slide,
                 self.app.server, self.app.skip_alignment, 0,
                 system_path=self.app.system_path,
+                storage=self.app.storage,
             )
             self.app.scope.move_to_image()
             self.app.scope.cancel_process = 0

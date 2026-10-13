@@ -28,6 +28,7 @@ from front_end.logwindow import (
 )
 
 from front_end.panels.workspace_panel import WorkspacePanel
+from system.storage_settings import StorageSettings, StorageSettingsError, default_path as storage_default_path
 from front_end.panels.experiment_config_panel import ExperimentConfigPanel
 from front_end.panels.device_panel import DevicePanel
 from front_end.panels.fluidics_control_panel import FluidicsControlPanel
@@ -340,33 +341,60 @@ class window_widgets:
         self.slice_number_field_auto = Entry(self.frame1, relief="groove", width=10)
         self.slice_number_field_manual = Entry(self.frame1_1, relief="groove", width=10)
 
+        # Server user/host defaults and the read-only bucket / folder come from config_file/storage.json.
+        # A bad or missing file leaves them empty; it is reported, and blocks, when the experiment is created.
+        self.storage = None
+        try:
+            self.storage = StorageSettings.load(storage_default_path())
+        except StorageSettingsError:
+            pass
         self.account = tk.StringVar()
-        self.account.set("imagestorage")
+        self.account.set(self.storage.server_user if self.storage else "")
         self.account_field_auto = Entry(self.frame2, relief="groove", width=15, textvariable=self.account)
         self.account_field_auto.config(state=DISABLED)
         self.account_field_manual = Entry(self.frame2_2, relief="groove", width=15, textvariable=self.account)
         self.account_field_manual.config(state=DISABLED)
 
         self.server = tk.StringVar()
-        self.server.set("10.128.30.152")
+        self.server.set(self.storage.server_host if self.storage else "")
         self.server_field_auto = Entry(self.frame2, relief="groove", width=20, textvariable=self.server)
         self.server_field_auto.config(state=DISABLED)
         self.server_field_manual = Entry(self.frame2_2, relief="groove", width=20, textvariable=self.server)
         self.server_field_manual.config(state=DISABLED)
 
         self.aws = tk.StringVar()
-        self.aws.set("aixin.zhang@alleninstitute.org")
+        self.aws.set("unused")  # the AWS CLI's own credentials are used; this field is never read
         self.aws_account_field_auto = Entry(self.frame3, relief="groove", width=20, textvariable=self.aws)
         self.aws_account_field_auto.config(state=DISABLED)
         self.aws_account_field_manual = Entry(self.frame3_3, relief="groove", width=20, textvariable=self.aws)
         self.aws_account_field_manual.config(state=DISABLED)
 
         self.aws_pwd = tk.StringVar()
-        self.aws_pwd.set("")  # Set via UI or environment variable; do not hardcode credentials
+        self.aws_pwd.set("unused")
         self.aws_pwd_field_auto = Entry(self.frame3, relief="groove", width=20, textvariable=self.aws_pwd)
         self.aws_pwd_field_auto.config(state=DISABLED)
         self.aws_pwd_field_manual = Entry(self.frame3_3, relief="groove", width=20, textvariable=self.aws_pwd)
         self.aws_pwd_field_manual.config(state=DISABLED)
+
+        # Read-only display of the settings taken from storage.json.
+        self.aws_bucket_var = tk.StringVar(value=(self.storage.aws_bucket if self.storage else ""))
+        self.server_root_var = tk.StringVar(value=(self.storage.server_root if self.storage else ""))
+        self.aws_bucket_lb_auto = Label(self.frame3, text="bucket:", bd=1, relief="flat", width=8,
+                                        fg=widge_attr.disable_color, font=("Arial", 10))
+        self.aws_bucket_field_auto = Entry(self.frame3, relief="groove", width=22, textvariable=self.aws_bucket_var,
+                                           state=DISABLED)
+        self.aws_bucket_lb_manual = Label(self.frame3_3, text="bucket:", bd=1, relief="flat", width=8,
+                                          fg=widge_attr.disable_color, font=("Arial", 10))
+        self.aws_bucket_field_manual = Entry(self.frame3_3, relief="groove", width=22,
+                                             textvariable=self.aws_bucket_var, state=DISABLED)
+        self.server_root_lb_auto = Label(self.frame2, text="server folder:", bd=1, relief="flat", width=12,
+                                         fg=widge_attr.disable_color, font=("Arial", 10))
+        self.server_root_field_auto = Entry(self.frame2, relief="groove", width=20,
+                                            textvariable=self.server_root_var, state=DISABLED)
+        self.server_root_lb_manual = Label(self.frame2_2, text="server folder:", bd=1, relief="flat", width=12,
+                                           fg=widge_attr.disable_color, font=("Arial", 10))
+        self.server_root_field_manual = Entry(self.frame2_2, relief="groove", width=20,
+                                              textvariable=self.server_root_var, state=DISABLED)
         ##check box
         self.mock_alignment = IntVar()
         self.mock_alignment.set(0)

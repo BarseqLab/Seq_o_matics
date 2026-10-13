@@ -347,7 +347,7 @@ class MaxProjectionManager:
         p = self._parent
         files = os.listdir(pos_path)
         f = [f for f in files if ".json" in f or ".txt" in f or ".csv" in f]
-        server_path = '/mnt/imagestorage/' + pos_path[3:]+ "_maxprojection"
+        server_path = p.storage.remote_path(pos_path, "_maxprojection")
         for i in f:
             cmd = "scp " + os.path.join(pos_path, i) + " " + p.linux_server + ":" + server_path
             os.system(cmd)
@@ -363,7 +363,7 @@ class MaxProjectionManager:
         """
         p = self._parent
         image_local_path = os.path.join(p.maxprojection_drive,pos_path[3:] + "_maxprojection")
-        server_path='/mnt/imagestorage/'+pos_path[3:] + "_maxprojection"
+        server_path = p.storage.remote_path(pos_path, "_maxprojection")
         cmd1 = 'ssh '+p.linux_server+ ' -vvv mkdir -p ' + server_path
         p.write_log("transfer data: "+cmd1)
         os.system(cmd1)

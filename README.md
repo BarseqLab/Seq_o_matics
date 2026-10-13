@@ -276,6 +276,29 @@ All hardware configuration is stored as JSON files in `code/config_file/`. See [
 - **`Fluidics_Reagent_Components.json`** -- Maps reagent names to selector addresses (1-16).
 - **`Heat_stage.json`** -- DAQ device, analog output/input ports, digital output lines per heater.
 - **`KMtronic_relay.json`** -- Serial port for the relay controller.
+- **`storage.json`** -- Where data goes after a run: AWS bucket, S3 prefix, storage class, upload retries, and the storage server user, host and folder. See below.
+
+### Setting up another lab (storage.json)
+
+The AWS bucket and the storage server are set in `code/config_file/storage.json`; nothing lab-specific is hardcoded.
+There are no built-in defaults, so every key must be present:
+
+| Key | Meaning |
+|---|---|
+| `aws_bucket` | S3 bucket for the end-of-run upload |
+| `aws_prefix` | Optional folder inside the bucket (`""` for none, no leading `/`) |
+| `aws_storage_class` | Passed to `aws s3 cp --storage-class` (for example `INTELLIGENT_TIERING`) |
+| `aws_upload_retries` | Attempts per file (integer, at least 1) |
+| `server_user`, `server_host` | Default ssh account and host. The GUI fields are pre-filled with these and can be changed per run |
+| `server_root` | Folder on the server that receives the data; must end with `/` |
+
+On the microscope PC:
+
+1. Install the AWS CLI and run `aws configure` (or set up a profile) with credentials that can write to the bucket. The GUI's AWS account/password fields are not used.
+2. Set up ssh key login to the storage server (`ssh user@host` must work without a password; the end-of-run upload cannot ask for one).
+3. Edit `storage.json`.
+
+When an experiment is created, the program loads `storage.json` and tests the connections that are ticked (AWS: CLI, credentials and bucket access; server: key login and a writable `server_root`). A missing or invalid file, a missing or unknown key (for example a typo), or a failed connection test shows an error and **stops the experiment from being created**. The tests do not write anything, so write permission on the bucket is not checked.
 
 ---
 

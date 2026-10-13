@@ -42,8 +42,9 @@ def _run(args, runner, timeout=TIMEOUT_S):
         return None, f"{type(e).__name__}: {e}"
 
 
-def check_aws(settings, runner=run_command):
+def check_aws(settings, runner=None):
     """AWS CLI present, credentials valid, bucket visible to them. Does not prove write permission."""
+    runner = runner or run_command
     name = f"AWS bucket {settings.aws_bucket}"
     steps = (
         (["aws", "--version"], "AWS CLI not usable"),
@@ -60,8 +61,9 @@ def check_aws(settings, runner=run_command):
     return CheckResult(name, True, "CLI, credentials and bucket access confirmed (write access not tested)")
 
 
-def check_server(settings, server=None, runner=run_command):
+def check_server(settings, server=None, runner=None):
     """Key-based ssh login works and server_root exists and is writable. ``server`` overrides user@host (GUI edits)."""
+    runner = runner or run_command
     server = server or settings.server
     name = f"server {server}"
     root = settings.server_root
@@ -83,9 +85,10 @@ def check_server(settings, server=None, runner=run_command):
     return CheckResult(name, False, f"ssh exited with {rc}: {_tail(stderr)}")
 
 
-def check_all(settings, server, check_aws_too, check_server_too, runner=run_command):
+def check_all(settings, server, check_aws_too, check_server_too, runner=None):
     """Run the requested checks and return a list of CheckResult."""
     results = []
+    runner = runner or run_command
     if check_aws_too:
         results.append(check_aws(settings, runner))
     if check_server_too:
