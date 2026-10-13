@@ -1,7 +1,7 @@
 # Plan: lab-specific AWS and storage-server settings in storage.json, with connection tests
 
 Branch `feature/configurable-aws-bucket` (worktree `.worktrees/configurable-aws-bucket`), based on main `9f8e7d2`.
-Status: APPROVED v3 + both storage.json errors and connection failures BLOCK experiment creation (user decision). Implementing.
+Status: IMPLEMENTED on this branch (commits 9c9080b, 21f35b1) and pushed; NOT yet tested on Elm. Decision: both a storage.json error and a failed connection test BLOCK experiment creation. Record and Elm test checklist: plans/storage_settings_STATUS.md.
 
 ## Goal
 Another lab with a different AWS bucket and a different storage server folder can run the package by editing
