@@ -1,0 +1,9 @@
+{
+"aws_bucket": "barseq-acquisition",
+"aws_prefix": "",
+"aws_storage_class": "INTELLIGENT_TIERING",
+"aws_upload_retries": 3,
+"server_user": "imagestorage",
+"server_host": "10.128.30.152",
+"server_root": "/mnt/imagestorage/"
+}
