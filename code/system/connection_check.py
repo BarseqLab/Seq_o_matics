@@ -21,7 +21,10 @@ class CheckResult:
 
 def run_command(args, timeout=TIMEOUT_S):
     """Run ``args`` and return (returncode, stdout, stderr); the fake runners in the tests have this signature."""
-    p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    # No console input (ssh must not wait on it); output decoded leniently, since a server login banner can hold
+    # bytes the Windows code page cannot decode, and that must not turn a working login into a failure.
+    p = subprocess.run(args, stdin=subprocess.DEVNULL, capture_output=True, encoding="utf-8", errors="replace",
+                       timeout=timeout)
     return p.returncode, p.stdout, p.stderr
 
 

@@ -3,6 +3,7 @@
 import importlib.util
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -56,7 +57,7 @@ class TestLoad(unittest.TestCase):
         with self.assertRaises(ss.StorageSettingsError) as cm:
             ss.StorageSettings.from_dict(cfg)
         m = str(cm.exception)
-        for part in ("missing key 'aws_bucket'", "unknown key 'aws_bucked'", "aws_upload_retries", "must end with '/'"):
+        for part in ("missing key 'aws_bucket'", "unknown key 'aws_bucked'", "aws_upload_retries", "ends with '/'"):
             self.assertIn(part, m)
 
     def test_invalid_values(self):
@@ -68,6 +69,53 @@ class TestLoad(unittest.TestCase):
     def test_not_an_object(self):
         with self.assertRaises(ss.StorageSettingsError):
             ss.StorageSettings.from_dict([GOOD])
+
+    def test_utf8_with_bom_loads(self):
+        """Notepad can save UTF-8 with a byte-order mark; the file must still load."""
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "storage.json")
+            with open(p, "w", encoding="utf-8-sig") as f:
+                json.dump(GOOD, f)
+            self.assertEqual(ss.StorageSettings.load(p).aws_bucket, "b")
+
+    def test_values_that_would_break_commands_are_rejected(self):
+        bad = (
+            {"aws_bucket": " b "}, {"aws_bucket": "s3://b"}, {"aws_bucket": "b/c"},
+            {"aws_prefix": " "}, {"aws_prefix": "a//b"}, {"aws_prefix": "a b"},
+            {"aws_storage_class": "intelligent tiering"},
+            {"aws_upload_retries": 11}, {"aws_upload_retries": -1},
+            {"server_user": "a b"}, {"server_user": "u@h"},
+            {"server_host": "u@h"}, {"server_host": "h h"}, {"server_host": "h:22"},
+            {"server_root": "r/"}, {"server_root": "/mnt/my data/"}, {"server_root": "/mnt/o'x/"},
+            {"server_root": "/mnt/a;rm/"}, {"server_root": "/mnt//x/"},
+        )
+        for kw in bad:
+            with self.assertRaises(ss.StorageSettingsError, msg=str(kw)):
+                S(**kw)
+
+    def test_storage_class_must_be_one_aws_accepts(self):
+        """A typo would otherwise only fail at the end-of-run `aws s3 cp`, hours later."""
+        for good in ("STANDARD", "INTELLIGENT_TIERING", "GLACIER_IR", "DEEP_ARCHIVE"):
+            S(aws_storage_class=good)
+        for bad in ("INTELIGENT_TIERING", "STANDARD_IA_", "GLACIER_X"):
+            with self.assertRaisesRegex(ss.StorageSettingsError, "INTELLIGENT_TIERING", msg=bad):
+                S(aws_storage_class=bad)
+
+    def test_leading_dash_is_rejected(self):
+        """scp/ssh would read '-oProxyCommand=...' as an option."""
+        for kw in ({"server_user": "-oProxyCommand=x"}, {"server_user": "-F"}, {"server_host": "-x"},
+                   {"aws_bucket": "-b"}):
+            with self.assertRaises(ss.StorageSettingsError, msg=str(kw)):
+                S(**kw)
+
+    def test_ordinary_values_are_accepted(self):
+        for kw in ({"aws_bucket": "barseq-acquisition"}, {"aws_bucket": "lab.B_bucket"},
+                   {"aws_prefix": "labA/sub/"}, {"aws_prefix": "labA/2026"}, {"aws_upload_retries": 10},
+                   {"server_user": "image.storage_1"}, {"server_host": "10.128.30.152"},
+                   {"server_host": "store-1.lab.org"}, {"server_root": "/"},
+                   {"server_root": "/mnt/imagestorage/"}, {"server_root": "/data/lab_B/raw-2026/"}):
+            S(**kw)
 
 
 class TestPaths(unittest.TestCase):
@@ -153,6 +201,24 @@ class TestServer(unittest.TestCase):
         self.assertIn("not found", cc.check_server(S(), None, fake({"ssh": FileNotFoundError()})).message)
         self.assertIn("timed out",
                       cc.check_server(S(), None, fake({"ssh": subprocess.TimeoutExpired("ssh", 20)})).message)
+
+
+class TestRunCommand(unittest.TestCase):
+    """The real runner, with a Python child process instead of aws / ssh."""
+
+    def test_undecodable_output_does_not_fail_the_check(self):
+        # e.g. a server login banner with bytes the Windows code page cannot decode
+        rc, out, err = cc.run_command([sys.executable, "-c",
+                                       "import sys; sys.stdout.buffer.write(b'\\x81\\x8d\\xff ok');"
+                                       "sys.stderr.buffer.write(b'\\x9d')"], timeout=20)
+        self.assertEqual(rc, 0)
+        self.assertIn("ok", out)
+        self.assertIsInstance(err, str)
+
+    def test_child_gets_no_console_input(self):
+        rc, out, _err = cc.run_command([sys.executable, "-c", "import sys; print(repr(sys.stdin.read()))"],
+                                       timeout=20)
+        self.assertEqual((rc, out.strip()), (0, "''"))
 
 
 class TestAll(unittest.TestCase):

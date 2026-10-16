@@ -342,12 +342,16 @@ class window_widgets:
         self.slice_number_field_manual = Entry(self.frame1_1, relief="groove", width=10)
 
         # Server user/host defaults and the read-only bucket / folder come from config_file/storage.json.
-        # A bad or missing file leaves them empty; it is reported, and blocks, when the experiment is created.
+        # A bad or missing file leaves them empty and is reported now; it blocks when the experiment is created,
+        # and a fixed file then fills the empty fields (WorkspacePanel._show_storage).
         self.storage = None
         try:
             self.storage = StorageSettings.load(storage_default_path())
-        except StorageSettingsError:
-            pass
+        except StorageSettingsError as e:
+            txt = "storage.json error: " + str(e) + "\n"
+            print(txt)
+            update_error(txt)
+        self.storage_shown = self.storage  # the settings the user/host fields were last filled from
         self.account = tk.StringVar()
         self.account.set(self.storage.server_user if self.storage else "")
         self.account_field_auto = Entry(self.frame2, relief="groove", width=15, textvariable=self.account)
@@ -357,6 +361,8 @@ class window_widgets:
 
         self.server = tk.StringVar()
         self.server.set(self.storage.server_host if self.storage else "")
+        # create_exp_* later replaces self.server with the "user@host" string, so keep the host variable here too.
+        self.server_host_var = self.server
         self.server_field_auto = Entry(self.frame2, relief="groove", width=20, textvariable=self.server)
         self.server_field_auto.config(state=DISABLED)
         self.server_field_manual = Entry(self.frame2_2, relief="groove", width=20, textvariable=self.server)
