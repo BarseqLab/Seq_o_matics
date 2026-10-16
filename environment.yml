@@ -14,6 +14,12 @@ dependencies:
   - scikit-image==0.20.0
   - pytz>=2021.1
   - zstandard>=0.21
+  # Required by vendored pycromanager / ndtiff (code/supplementary/package)
+  - pyzmq>=22.0
+  - sortedcontainers>=2.4
+  - dask-core>=2021.10
+  - docstring-inheritance>=1.0
+  - pymmcore>=11.1
   - tk
   - pip
   - pip:

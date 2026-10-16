@@ -39,3 +39,25 @@ the AI-assistant note (incl. its spelling), architecture diagram (still correct 
   `config_files.md` an older version without the z-stack section), and `docs/dryrun_results/` holds old checkpoint
   reports. List them in the tree, or leave them out (I suggest leaving them out; `docs/docs/` looks like an
   accidental copy, worth deleting separately)?
+
+## Follow-up (2026-10-16): environment.yml was incomplete
+Found while removing Option B: `environment.yml` lacks the five packages the vendored pycromanager/ndtiff import at
+module level (`zmq`, `sortedcontainers`, `dask.array`, `docstring_inheritance`, `pymmcore`; `requirements.txt`
+lists them). Confirmed: in an env built from `environment.yml`, `import pycromanager` fails with
+"No module named 'zmq'". `code/supplementary/package/all_site_packages/` is not on the import path (and is a
+cp311 snapshot with other versions), so it does not help.
+User decision: keep conda (Option A) and fix it **with conda packages, not pip** (worried about pip/conda
+compatibility). Plan: add from conda-forge `pyzmq>=22.0`, `sortedcontainers>=2.4`, `dask-core>=2021.10` (conda's
+equivalent of pip's plain `dask`), `docstring-inheritance>=1.0`, `pymmcore>=11.1` (same minimums as
+requirements.txt; all exist on conda-forge for Python 3.10). Then rebuild `c:\barseq_envs\seqomatic-dryrun` from the
+file and check: `import pycromanager`, `import ndtiff`, all unit tests.
+Note: pymmcore's version must match Micro-Manager's device interface only for the headless (Python) backend; the
+Java backend over zmq does not load it. Elm's exact versions (`conda list -n seq_o_matic --export` on Elm) would be
+the best pins; not available here.
+**Done 2026-10-16.** Rebuilt `c:\barseq_envs\seqomatic-dryrun` from the fixed file (exit 0). Resolved versions:
+Python 3.10.13, numpy 1.26.0, pandas 1.5.3, scikit-image 0.20.0, matplotlib 3.5.3 (pins held), pyzmq 27.2.0,
+sortedcontainers 2.4.0, dask 2026.8.0, docstring-inheritance 3.0.0, pymmcore 12.5.0.75.0, zstandard 0.25.0,
+OpenCV 5.0.0. `import pycromanager`, `from pycromanager import Core, Acquisition` and `import ndtiff` now work; all
+80 unit tests pass. Not tested: talking to a real Micro-Manager. Open: unpinned packages resolve to the newest
+versions (OpenCV 5, dask 2026, pymmcore 12.5), which may differ from Elm; pinning to Elm's versions would need
+`conda list -n seq_o_matic --export` from Elm.
