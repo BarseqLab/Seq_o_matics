@@ -148,6 +148,8 @@ After installing Python dependencies:
 
 ### For Lab Scientists
 
+For the full hardware installation and day-of setup procedure (fluidics plumbing, chamber assembly, pump calibration, start and takedown), see the [Setup Guide](docs/setup_guide/Seq-o-matic_Setup_Guide.md) and its reagent calculator, [Automation_Workbook.xlsx](docs/setup_guide/Automation_Workbook.xlsx). In short:
+
 1. Connect all hardware devices and power them on.
 2. Launch Micro-Manager and load your microscope configuration.
 3. Open a terminal in the `code/` directory and run:
@@ -191,6 +193,9 @@ Seq_o_matics_2.5/
     reagent_sequences.md             #   Protocol JSON format reference
     hardcoded_values.md              #   Per-microscope values still written in the code
     parity_inventory.md              #   Differences from the Elm reference program (with parity_inventory/)
+    setup_guide/                     #   Hardware installation and day-of setup guide
+      Seq-o-matic_Setup_Guide.md     #     The guide (figures in images/)
+      Automation_Workbook.xlsx       #     Reagent calculator used by the guide
   dryrun/                            # Hardware-free dry-run harness (see dryrun/README.md)
     tests/                           #   Unit tests
   plans/                             # Development plans and status records

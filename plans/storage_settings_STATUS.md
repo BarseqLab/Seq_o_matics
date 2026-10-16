@@ -100,6 +100,7 @@ Setup: check out `feature/configurable-aws-bucket` in a **separate folder** from
 10. Record results (pass/fail, log text for any failure) in this file.
 
 ## Open items
+- **TO DO (user, 2026-10-16): pin `environment.yml` to Elm's versions.** On Elm run `conda list -n seq_o_matic --export > elm_env.txt`, then pin every package to those versions, rebuild `c:\barseq_envs\seqomatic-dryrun` and retest. Today the unpinned packages resolve to the newest builds (OpenCV 5.0.0, dask 2026.8, pymmcore 12.5, docstring-inheritance 3.0), probably newer than Elm's.
 - `feature/manual-aws-upload` hardcodes the bucket in two places (`aws_upload_worker.py`, `Widgets.py`). Rebase it onto the new main and make it use `storage.json` after this branch is accepted.
 - The Start button's confirmation window re-reads `scope.json` but not `storage.json`; edits to `storage.json` take effect at the next experiment creation.
 - Optional later: a write-permission test for the bucket and the server folder (declined for now).
