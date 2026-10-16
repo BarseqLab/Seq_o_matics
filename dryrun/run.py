@@ -1,7 +1,7 @@
 """Prepare scratch copies of program trees, run scenarios, and compare the traces.
 
     python -m dryrun.run --trees ref,branch --scenarios imaging_only,prime_wash
-    python -m dryrun.run --trees ref,branch,main --scenarios all --report docs/dryrun_results/report.md
+    python -m dryrun.run --trees ref,branch,main --scenarios all --report report.md
 
 Trees:
   ref     the Elm reference folder (copied, never modified)

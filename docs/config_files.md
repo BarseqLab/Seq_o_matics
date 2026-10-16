@@ -1,6 +1,6 @@
 # Configuration Files Reference
 
-All configuration files are located in `code/config_file/` and use JSON format. Each file is a JSON array containing one or more device/component definitions.
+All configuration files are located in `code/config_file/` and use JSON format. Each file is a JSON array containing one or more device/component definitions, except `storage.json`, which is a single JSON object.
 
 ---
 
@@ -163,7 +163,7 @@ Defines microscope parameters for the imaging system.
   "overlap": 10,
   "geneseq_focus_target_channel": "Hyb-DAPI",
   "Hyb_focus_target_channel": "Hyb-DAPI",
-  "maxproject_drive": "M:\\",
+  "maxproject_drive": "D:\\",
   "align_channel": "Hyb-DAPI"
 }]
 ```
@@ -184,7 +184,7 @@ Defines microscope parameters for the imaging system.
 | `overlap` | int | Tile overlap percentage (e.g., `10` = 10%) |
 | `geneseq_focus_target_channel` | string | Channel used for autofocus during gene sequencing cycles |
 | `Hyb_focus_target_channel` | string | Channel used for autofocus during hybridization cycles |
-| `maxproject_drive` | string | Network drive path for max-projection output (e.g., `"M:\\"`) |
+| `maxproject_drive` | string | Drive the max projections are written to, as `<drive><work directory without its drive>_maxprojection\<cycle>\` (shipped: `"D:\\"`). The end-of-run uploads read from there. |
 | `align_channel` | string | Channel used for inter-cycle image alignment |
 
 ### Z-stack thickness keys
@@ -219,3 +219,33 @@ Channels correspond to filter cube / illumination combinations configured in Mic
 | `Hyb-GFP`, `Hyb-YFP`, `Hyb-TxRed`, `Hyb-Cy5` | Hybridization fluorescence channels |
 | `Hyb-DAPI` | DAPI nuclear stain channel (typically used for focus and alignment) |
 | `C-focus`, `Hyb-TxRed-focus` | Dedicated focus channels with specific exposure settings |
+
+---
+
+## storage.json
+
+Where the data goes at the end of an automated run: the AWS bucket and the storage server. Unlike the other files, it is a single JSON object (UTF-8; a byte-order mark is accepted). There are no built-in defaults: a missing file, a missing or unknown key, or an invalid value stops the experiment from being created, and the error lists every problem.
+
+```json
+{
+"aws_bucket": "barseq-acquisition",
+"aws_prefix": "",
+"aws_storage_class": "INTELLIGENT_TIERING",
+"aws_upload_retries": 3,
+"server_user": "imagestorage",
+"server_host": "10.128.30.152",
+"server_root": "/mnt/imagestorage/"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `aws_bucket` | string | S3 bucket for the end-of-run upload. Letters, digits, `.`, `_` and `-`, starting with a letter or digit (no `s3://` or `/`) |
+| `aws_prefix` | string | Optional folder inside the bucket. `""` for none; otherwise folder names separated by single `/` (no leading `/`, no spaces) |
+| `aws_storage_class` | string | Passed to `aws s3 cp --storage-class`. One of `STANDARD`, `REDUCED_REDUNDANCY`, `STANDARD_IA`, `ONEZONE_IA`, `INTELLIGENT_TIERING`, `GLACIER`, `DEEP_ARCHIVE`, `GLACIER_IR` |
+| `aws_upload_retries` | int | Upload attempts per file, 1 to 10 |
+| `server_user` | string | Default ssh account on the storage server. Letters, digits, `.`, `_` and `-`, not starting with `-` |
+| `server_host` | string | Default storage server: host name or IPv4 address (no `user@` or `:port`, not starting with `-`) |
+| `server_root` | string | Folder on the server that receives the data. Must start and end with `/`, with no spaces, quotes, `;` or `//` |
+
+Uploads go to `s3://<aws_bucket>/[<aws_prefix>/]<work directory without its drive>_maxprojection/<cycle>.tar.zst` and to `<server_root><work directory without its drive>_maxprojection` on the server. The GUI's server user and host fields are pre-filled from this file and can be edited per run after ticking the server box; the bucket and server folder are shown read-only. See the README section "Setting up another lab (storage.json)" for the AWS CLI and ssh key setup and the connection tests run at experiment creation.

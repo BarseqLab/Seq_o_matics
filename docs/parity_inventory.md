@@ -81,7 +81,7 @@ Context from the user: **Elm currently runs on REF.** No other version has been 
 | D01 (= Q2) | `618593f` | |
 | D02, D04–D20, D22, D23 | not changed | shared bugs, listed only |
 
-Evidence that each fix works is in `docs/dryrun_results/` (checkpoint 3).
+Evidence that each fix works was in `docs/dryrun_results/` (checkpoint 3). That folder was deleted on 2026-10-16; the reports remain in git history at commit `9011677` (`git show 9011677:docs/dryrun_results/checkpoint3_summary.md`).
 
 ## 1. Group B: regressions to fix (NEW → REF behavior)
 
@@ -176,7 +176,7 @@ The file now holds Elm's 1.58 (commit `3393477`). For the fix, see GA10/Q8 in "R
 | D18 | `scope_constant` lacks `scope_*` attributes, so `AttributeError` if `piezo != 1`. Elm has `piezo: 1`. | I16 | |
 | D19 | Max-projection semaphore never acquired, so threads are unbounded (memory pressure if projection lags). | I18 | |
 | D20 | A second acquisition failure kills the max-projection thread, and the run waits until Cancel. Also: `~bool` in `Assign_image_channel` (no effect). | I19, I20 | |
-| D21 | **Cancel in an automated run never disconnects the devices.** Afterwards, COM9/COM10/COM11 stay open and the Dev3 heater channels stay reserved. Pressing Start again then fails in `connect_selector` with `SerialException ... COM11: Access is denied`, so the operator must restart the program. The pump itself reconnects, because its old object is garbage-collected. Shown by the dry run `cancel_restart` in both trees, 2026-10-05. Fix together with the deferred Cancel/pump-stop work, because `disconnect_pump` sends the pump stop. | `docs/dryrun_results/checkpoint2_summary.md` | |
+| D21 | **Cancel in an automated run never disconnects the devices.** Afterwards, COM9/COM10/COM11 stay open and the Dev3 heater channels stay reserved. Pressing Start again then fails in `connect_selector` with `SerialException ... COM11: Access is denied`, so the operator must restart the program. The pump itself reconnects, because its old object is garbage-collected. Shown by the dry run `cancel_restart` in both trees, 2026-10-05. Fix together with the deferred Cancel/pump-stop work, because `disconnect_pump` sends the pump stop. | `docs/dryrun_results/checkpoint2_summary.md` (deleted 2026-10-16; in git history at `23559b8`) | |
 | D22 | The live-view thread reads `scope.maxprojection_name` every 5 s. If the next step replaces `scope` before the thread sees `'end'`, it loops forever and keeps the program alive at exit. Seen in the dry run (100× speed); unlikely at real speed. | dry run `auto_full` | |
 | D23 | Cancel during focus with "Skip alignment": the mock alignment then reads a missing `offset<cycle>.csv`, so the automation thread ends with `FileNotFoundError` (no hang, no device effect). | dry run `cancel_focus` | |
 

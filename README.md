@@ -118,28 +118,9 @@ conda env create -f environment.yml
 
 # 3. Activate the environment
 conda activate seq-o-matic
-
-# 4. (Optional) Install the package in editable/development mode
-pip install -e .
 ```
 
-### Option B: Pip with virtual environment
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/BarseqLab/Seq_o_matics.git
-cd Seq_o_matics
-
-# 2. Create and activate a virtual environment
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS/Linux
-
-# 3. Install the package and all dependencies
-pip install -e .
-```
-
-### Option C: Pip from requirements.txt (simplest)
+### Option B: Pip from requirements.txt (simplest)
 
 ```bash
 git clone https://github.com/BarseqLab/Seq_o_matics.git
@@ -177,14 +158,18 @@ After installing Python dependencies:
    # Launch the application
    python mainwindow.py
    ```
-4. In the **Automation** tab:
-   - Click **Browse** to select your experiment working directory.
-   - Click **Exp** to fill in experiment metadata (brain name, probes, technician, etc.).
-   - Click **Config Device** to connect and test all hardware devices.
-   - Build your protocol sequence (or use a predefined one).
-   - Click **Prime** to fill all fluidics lines with reagent.
-   - Click **Start** to begin the automated sequencing run.
+4. In the **Auto System** tab:
+   - Click **Browse** to select your experiment working directory, and fill in **Slice per slide**.
+   - Click **Fill experiment detail** to fill in experiment metadata (brain name, probes, technician, etc.).
+   - Click **Create Protocol** to build your protocol sequence, and **Assign Heaters** if needed.
+   - Tick **Send to storage server** and/or **upload to AWS** if the data should be uploaded at the end of the run.
+   - Click **Create Your Experiment**. This loads `storage.json` and tests the connections for the ticked uploads (see [Setting up another lab](#setting-up-another-lab-storagejson)).
+   - Click **Devices configuration** to connect and test all hardware devices.
+   - Click **Prime lines** to fill all fluidics lines with reagent.
+   - Click **Start Automation process** (and confirm the pump speed) to begin the automated sequencing run.
 5. Monitor progress in the log window. Live images and focus/alignment/tiling plots update in real time.
+
+The **Manual System** tab runs one imaging cycle at a time (focus, align, tile, image and max projection as separate steps); it does not upload images (only the note, with **Send note to server**).
 
 ### For Developers
 
@@ -196,7 +181,7 @@ See the [Project Structure](#project-structure) and [For Developers](#for-develo
 
 ```
 Seq_o_matics_2.5/
-  pyproject.toml                     # Python package config (pip install)
+  pyproject.toml                     # Python package metadata (not used by the install options above)
   environment.yml                    # Conda environment definition
   requirements.txt                   # Pip dependencies
   README.md                          # This file
@@ -204,6 +189,11 @@ Seq_o_matics_2.5/
     architecture.md                  #   Detailed architecture & data flow
     config_files.md                  #   JSON config file schemas
     reagent_sequences.md             #   Protocol JSON format reference
+    hardcoded_values.md              #   Per-microscope values still written in the code
+    parity_inventory.md              #   Differences from the Elm reference program (with parity_inventory/)
+  dryrun/                            # Hardware-free dry-run harness (see dryrun/README.md)
+    tests/                           #   Unit tests
+  plans/                             # Development plans and status records
   code/
     mainwindow.py                    # Application entry point
     constants.py                     # Named constants (replaces magic numbers)
@@ -216,12 +206,16 @@ Seq_o_matics_2.5/
       KMtronic_relay.json            #   Relay serial port
       Fluidics_Reagent_Components.json # Reagent-to-address mapping
       scope.json                     #   Microscope parameters
+      storage.json                   #   AWS bucket and storage server for uploads
+    logo/                            # GUI images
     device/                          # Hardware device wrappers
       base.py                        #   ABC interfaces (PumpDevice, SelectorDevice, etc.)
       Pump.py                        #   Ismatec pump (implements PumpDevice)
       Selector.py                    #   Elveflow multiplexer (implements SelectorDevice)
       Heatingstage.py                #   Heating stage via NI DAQ (implements HeaterDevice)
       Relay.py                       #   KMtronic relay stub (implements RelayDevice)
+      pump_speed_calibration.txt     #   Pump speed calibration
+      tissue_scanner/                #   Chamber and slide position files for the tissue scanner
     driver/                          # Low-level hardware protocols
       ismatec_ipc.py                 #   Ismatec serial command protocol
       kmtronic_relay.py              #   KMtronic serial command protocol
@@ -240,6 +234,8 @@ Seq_o_matics_2.5/
         imaging_control_panel.py     #     Focus/align/tile/maxprojection controls
         status_panel.py              #     Plot canvases, notes, upload
     system/                          # High-level orchestration
+      storage_settings.py            #   Loads and validates storage.json
+      connection_check.py            #   AWS and storage-server checks run at Create
       fluidics_exchange_system.py    #   FluidicSystem facade (device connections)
       fluidics/                      #   Fluidics sub-package
         protocol_loader.py           #     Protocol type -> JSON file mapping
@@ -247,6 +243,9 @@ Seq_o_matics_2.5/
       imaging/                       #   Imaging sub-package
         imaging_system.py            #     ImagingSystem facade (composites managers)
         focus.py                     #     FocusManager (z-stack, autofocus)
+        autofocus.py                 #     Focus-plane choice from the sharpness curve
+        zstack_settings.py           #     Z-stack thickness settings from scope.json
+        ndtiff_stack.py              #     Frame-by-frame NDTiff reader
         alignment.py                 #     AlignmentManager (phase correlation)
         tiling.py                    #     TilingManager (tile grid generation)
         max_projection.py            #     MaxProjectionManager (acquisition + projection)
@@ -254,8 +253,8 @@ Seq_o_matics_2.5/
       image_acquisition_and_analysis_system.py  # Backward-compat shim -> imaging/
     reagent_sequence_file/           # Predefined fluidics protocols (JSON)
       Fluidics_sequence_*.json       #   Protocol definitions
-      original_sequence/             #   Backup copies of default protocols
-      2IRM_and_2CRM/                 #   Variant protocols (double IRM/CRM)
+      original_sequence_250um_gasket/ #  Original protocols (250um gasket)
+      2IRM_and_2CRM_750um_gasket/    #   Variant protocols (double IRM/CRM, 750um gasket)
       750um gasket/                  #   Variant protocols (750um gasket)
     supplementary/                   # Vendored third-party packages (DO NOT pip install)
       package/pycromanager/          #   Micro-Manager Python bridge (bundled, not from PyPI)
@@ -270,7 +269,7 @@ All hardware configuration is stored as JSON files in `code/config_file/`. See [
 
 ### Key Configuration Files
 
-- **`scope.json`** -- Microscope name, safe stage positions, exposure times per channel, pixel size, z-direction, alignment channel, max-projection output drive.
+- **`scope.json`** -- Microscope name, safe stage positions, exposure times per channel, pixel size, z-direction, alignment channel, max-projection output drive, and the optional z-stack thickness and focus settings (`z_stack_thickness_um`, `z_step_um`, `focus_method`, ...; see [Z-stack thickness keys](docs/config_files.md#z-stack-thickness-keys)).
 - **`IsmatecPumpDevice_pump.json`** -- Serial port, tubing diameter, pump ID.
 - **`ElveflowMuxDevice_selector.json`** -- Serial ports for the two cascaded selectors.
 - **`Fluidics_Reagent_Components.json`** -- Maps reagent names to selector addresses (1-16).
@@ -280,17 +279,19 @@ All hardware configuration is stored as JSON files in `code/config_file/`. See [
 
 ### Setting up another lab (storage.json)
 
-The AWS bucket and the storage server are set in `code/config_file/storage.json`; nothing lab-specific is hardcoded.
+The AWS bucket and the storage server are set in `code/config_file/storage.json` (a single JSON object, UTF-8); nothing lab-specific is hardcoded.
 There are no built-in defaults, so every key must be present:
 
 | Key | Meaning |
 |---|---|
-| `aws_bucket` | S3 bucket for the end-of-run upload |
-| `aws_prefix` | Optional folder inside the bucket (`""` for none, no leading `/`) |
-| `aws_storage_class` | Passed to `aws s3 cp --storage-class` (for example `INTELLIGENT_TIERING`) |
-| `aws_upload_retries` | Attempts per file (integer, at least 1) |
-| `server_user`, `server_host` | Default ssh account and host. The GUI fields are pre-filled with these and can be changed per run |
-| `server_root` | Folder on the server that receives the data; must end with `/` |
+| `aws_bucket` | S3 bucket for the end-of-run upload (letters, digits, `.`, `_`, `-`; no `s3://`) |
+| `aws_prefix` | Optional folder inside the bucket (`""` for none; folder names separated by `/`, no leading `/`, no spaces) |
+| `aws_storage_class` | Passed to `aws s3 cp --storage-class`; one of `STANDARD`, `REDUCED_REDUNDANCY`, `STANDARD_IA`, `ONEZONE_IA`, `INTELLIGENT_TIERING`, `GLACIER`, `DEEP_ARCHIVE`, `GLACIER_IR` |
+| `aws_upload_retries` | Attempts per file (integer, 1 to 10) |
+| `server_user`, `server_host` | Default ssh account and host (host name or IPv4 address, no `user@` or `:port`). The GUI fields are pre-filled with these; tick **Send to storage server** (or **change storage server** on the manual tab) to edit them for a run |
+| `server_root` | Folder on the server that receives the data; must start and end with `/`, with no spaces, quotes or `//` |
+
+`aws_bucket`, `server_user` and `server_host` may not start with `-` (scp/ssh would read it as an option).
 
 On the microscope PC:
 
@@ -298,7 +299,12 @@ On the microscope PC:
 2. Set up ssh key login to the storage server (`ssh user@host` must work without a password; the end-of-run upload cannot ask for one).
 3. Edit `storage.json`.
 
-When an experiment is created, the program loads `storage.json` and tests the connections that are ticked (AWS: CLI, credentials and bucket access; server: key login and a writable `server_root`). A missing or invalid file, a missing or unknown key (for example a typo), or a failed connection test shows an error and **stops the experiment from being created**. The tests do not write anything, so write permission on the bucket is not checked.
+When **Create Your Experiment** is clicked, the program loads `storage.json`:
+
+- A missing or invalid file, or a missing or unknown key (for example a typo), shows an error and **stops the experiment from being created**, on both tabs.
+- On the **Auto System** tab, it then tests the connections that are ticked (AWS: CLI, credentials and bucket access; server: key login and a writable `server_root`). A "Please wait" window stays open until the experiment is created; meanwhile the rest of the program, the upload boxes and the server fields cannot be used. A failed test shows an error naming the box to untick and **stops the experiment from being created**. The tests do not write anything, so write permission on the bucket is not checked.
+- On the **Manual System** tab, no connection is tested (manual runs do not upload images).
+- If `storage.json` was edited while the program is open, the server user/host fields follow the file unless they were changed by hand.
 
 ---
 
@@ -308,8 +314,8 @@ A typical automated sequencing experiment follows this workflow:
 
 ```
 1. SETUP
-   Configure devices -> Set work directory -> Enter experiment metadata
-   -> Build or select protocol sequence
+   Set work directory -> Enter experiment metadata -> Build or select protocol sequence
+   -> Create experiment (loads storage.json, tests the ticked uploads) -> Configure devices
 
 2. PRIME
    Fill all fluidics lines with reagent to remove air bubbles
@@ -328,10 +334,11 @@ A typical automated sequencing experiment follows this workflow:
       Align:  Register to reference cycle (imagecycle00) via phase correlation
       Tile:   Generate tile grid configuration
       MaxProj: Acquire multi-channel z-stacks -> Compute max-intensity projections
+               -> Write them to <maxproject_drive>\<experiment>_maxprojection\<cycle>\
 
-4. UPLOAD
-   Copy max-projection images to network drive (M:\)
-   Upload protocols and data to server via SCP
+4. UPLOAD (end of an automated run, only what was ticked at Create)
+   Send to storage server: ssh mkdir -p, then scp -r the _maxprojection folder to <server_root>
+   upload to AWS:          pack each cycle folder into <cycle>.tar.zst -> aws s3 cp to the bucket
 ```
 
 For reagent sequence format documentation, see [docs/reagent_sequences.md](docs/reagent_sequences.md).
@@ -359,9 +366,9 @@ Synchronization uses `threading.Event` objects (`cycle_done_event`, `start_image
 
 ### Logging
 
-The application uses Python's standard `logging` module alongside legacy log methods for comparison:
+The application uses Python's standard `logging` module alongside the program's own log methods:
 - **Console**: Structured output `2026-03-30 14:23:05 [INFO] seqomatic.fluidics: message`
-- **log.txt**: Timestamped structured entries (via `FileHandler`)
+- **log.txt** (in the work directory): the program's own log lines (`write_log`), once each. The `logging` module does not write to it: `setup_logging()` is called without a log file, so its `FileHandler` is not attached.
 - **GUI panels**: Color-coded messages via custom `TkHandler` (purple for fluidics, blue for scope, red for errors)
 
 Logger hierarchy: `seqomatic.fluidics`, `seqomatic.scope`, `seqomatic.device.pump`, `seqomatic.device.heater`, `seqomatic.device.selector`, `seqomatic.driver.ismatec`.
@@ -391,6 +398,8 @@ Logger hierarchy: `seqomatic.fluidics`, `seqomatic.scope`, `seqomatic.device.pum
 | `AlignmentManager` | `system/imaging/alignment.py` | Phase correlation image registration |
 | `TilingManager` | `system/imaging/tiling.py` | Tile grid generation |
 | `MaxProjectionManager` | `system/imaging/max_projection.py` | Multi-channel acquisition + max projection |
+| `StorageSettings` | `system/storage_settings.py` | Loads and validates `storage.json`; builds server paths and S3 URIs |
+| `check_all()` | `system/connection_check.py` | AWS and storage-server connection checks (`check_aws`, `check_server`) |
 
 **Device Layer:**
 
@@ -402,6 +411,18 @@ Logger hierarchy: `seqomatic.fluidics`, `seqomatic.scope`, `seqomatic.device.pum
 | `heat_stage_group` | `device/Heatingstage.py` | Multi-stage heating (implements HeaterDevice) |
 | `Ismatec` | `driver/ismatec_ipc.py` | Ismatec pump serial protocol |
 | `KmtronicRelay` | `driver/kmtronic_relay.py` | KMtronic relay serial protocol |
+
+### Tests and Dry Run
+
+Unit tests live in `dryrun/tests/` and use `unittest`. Run them from the repository root, in the conda environment from `environment.yml`:
+
+```bash
+python -m unittest discover -s dryrun/tests -t .
+```
+
+The storage tests (`test_storage_settings`, `test_storage_callsites`) need no numpy or pytz, so they also run with a plain Python that has Tk (tested with 3.10 and 3.13).
+
+`dryrun/` also holds a dry-run harness that runs the whole program, GUI included, with every device replaced by a fake, and compares two versions of the code device by device. See [dryrun/README.md](dryrun/README.md). A full scenario set writes about 50 GB of scratch.
 
 ### Adding a New Protocol
 

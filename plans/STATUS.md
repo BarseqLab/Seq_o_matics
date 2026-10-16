@@ -15,7 +15,7 @@ Read this first when picking the work up in a new session. The plan itself is `p
 | Inventory of differences, with decisions | `docs/parity_inventory.md`, plus per-area evidence in `docs/parity_inventory/` |
 | Hard-coded per-microscope values | `docs/hardcoded_values.md` (for a separate session) |
 | Dry-run harness | `dryrun/` (how to run: `dryrun/README.md`); scratch output in `C:\Users\SVC_barseq\Seq_o_matics_dryrun\` |
-| Checkpoint-2 results (harness on the unchanged branch) | `docs/dryrun_results/checkpoint2_summary.md` |
+| Checkpoint-2 results (harness on the unchanged branch) | `docs/dryrun_results/checkpoint2_summary.md` (deleted 2026-10-16; in git history at `23559b8`) |
 
 ## Steps
 
@@ -23,7 +23,7 @@ Read this first when picking the work up in a new session. The plan itself is `p
 |---|---|
 | 1. Behaviour inventory | **Done.** Reviewed and decided with the user (see "Review decisions" in `docs/parity_inventory.md`). |
 | 2. Dry-run harness | **Done.** Checkpoint 2 passed: it caught the known regressions on the unchanged branch. |
-| 3. Fix loop | **Done.** Checkpoint 3 (`docs/dryrun_results/checkpoint3_summary.md`): the branch matches the reference apart from approved deviations, text/timing noise and shared bugs. |
+| 3. Fix loop | **Done.** Checkpoint 3 (`docs/dryrun_results/checkpoint3_summary.md`, deleted 2026-10-16; in git history at `9011677`): the branch matches the reference apart from approved deviations, text/timing noise and shared bugs. |
 | 4. Micro-Manager demo run, then Elm water test | 4a **stopped at the user's request** (2026-10-05). 4b **Elm test passed**: the user reported "all worked well" on 2026-10-06, running the branch from the worktree. `main` of `Seq_o_matic_dev` was then moved to this branch; tag `pre-parity-main` marks the old `main`. |
 
 ## Step 3: what was changed (one commit per item, on `reference-parity`)
